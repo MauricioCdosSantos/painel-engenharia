@@ -33,7 +33,7 @@ with st.sidebar.form("novo_item"):
     pre_entrega = st.text_input("Pré-entrega (dd/mm)")
     cod_schumann = st.text_input("Código Schumann")
     descricao = st.text_area("Descrição")
-    data_limite = st.text_input("Data Limite ENG (dd/mm)")
+    data_limite = st.text_input("Data Limite ENG (dd/mm/yyyy)")
     prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
     status = st.text_input("Status")
     em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
@@ -74,9 +74,15 @@ gantt_df = st.session_state.df.copy()
 gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite ENG"] != "")]
 
 try:
-    gantt_df["Data Limite ENG"] = pd.to_datetime(gantt_df["Data Limite ENG"], format="%d/%m")
+    # Converte datas com ano atual padrão, se omitido
+    def parse_data_limite(date_str):
+        try:
+            return pd.to_datetime(date_str, format="%d/%m/%Y")
+        except:
+            return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
+
+    gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
     gantt_df["Start"] = pd.to_datetime("today")
-    gantt_df["Finish"] = gantt_df["Data Limite ENG"]
 
     fig = px.timeline(
         gantt_df,
