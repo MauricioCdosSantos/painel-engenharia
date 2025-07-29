@@ -75,13 +75,25 @@ gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite
 
 try:
     gantt_df["Data Limite ENG"] = pd.to_datetime(gantt_df["Data Limite ENG"], format="%d/%m")
-    gantt_df["Start"] = datetime.today()
+    gantt_df["Start"] = pd.to_datetime("today")
     gantt_df["Finish"] = gantt_df["Data Limite ENG"]
 
-    fig = px.timeline(gantt_df, x_start="Start", x_end="Finish", y="Descrição", color="Prioridade")
-    fig.update_layout(height=500, xaxis_title="Prazo", yaxis_title="Descrição")
+    fig = px.timeline(
+        gantt_df,
+        x_start="Start",
+        x_end="Finish",
+        y="Descrição",
+        color="Prioridade",
+        title="Prazos por Prioridade",
+        labels={"Descrição": "Item", "Start": "Início", "Finish": "Prazo"}
+    )
+    fig.update_yaxes(autorange="reversed")
+    fig.update_layout(
+        height=500,
+        xaxis_title="Data",
+        yaxis_title="Descrição",
+        bargap=0.2
+    )
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
-
-
