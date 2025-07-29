@@ -1,59 +1,86 @@
 import streamlit as st
 import pandas as pd
-import datetime as dt
+import json
+import os
+from datetime import datetime
+from plotly.express import timeline
 
-# Simula os dados extraídos da planilha da imagem
-data = [
-    {"Cliente": "CASP", "Pré-entrega": "09/06", "Código Schumann": "2020002903", "Descrição": "PENDULAR 3 SAIDAS Ø240 1045 MANUAL C/ ACION. ELET", "Data Limite ENG": "04/06", "Prioridade": "2.0-Prioridade 2", "Status": "Em desenvolvimento/Edição", "Em Estoque": "Sim"},
-    {"Cliente": "GSI", "Pré-entrega": "01/07", "Código Schumann": "2020003582", "Descrição": "PEND. 3 S Ø320 PREMIUM MAN. C/ ACION. ELET. LINAK", "Data Limite ENG": "05/06", "Prioridade": "URGENTE", "Status": "", "Em Estoque": "Não"},
-    {"Cliente": "SCHUMANN", "Pré-entrega": "05/06", "Código Schumann": "2021000036", "Descrição": "BIF.45° C/ PEND. Ø240 1045 ESP. PREMIUM C/ CX. DIR", "Data Limite ENG": "30/06", "Prioridade": "URGENTE", "Status": "Estrutura", "Em Estoque": "Não"},
-    {"Cliente": "GSI", "Pré-entrega": "01/07", "Código Schumann": "2020003621", "Descrição": "BIF. Ø320 X 90° 1045 C/ ACIO. ELETRICO LINAK", "Data Limite ENG": "06/06", "Prioridade": "0.1-Prioridade 2", "Status": "Estrutura", "Em Estoque": "Não"},
-    {"Cliente": "KW", "Pré-entrega": "15/08", "Código Schumann": "2010000863", "Descrição": "ANEL DO TELHADO SL 12 18 24", "Data Limite ENG": "", "Prioridade": "0.2-Prioridade 1", "Status": "Estrutura", "Em Estoque": "Não"},
-]
+st.set_page_config(page_title="Painel de Engenharia - Editável", layout="wide")
 
-df = pd.DataFrame(data)
+DATA_FILE = "dados_engenharia.json"
 
-# Conversão de datas
-if "Data Limite ENG" in df.columns:
-    df["Data Limite ENG"] = pd.to_datetime(df["Data Limite ENG"], format="%d/%m", errors='coerce').apply(
-        lambda x: x.replace(year=dt.datetime.now().year) if pd.notnull(x) else x
-    )
+# ---------- Funções auxiliares ----------
+def carregar_dados():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return pd.DataFrame(json.load(f))
+    return pd.DataFrame(columns=["Cliente", "Pré-entrega", "Código Schumann", "Descrição", "Data Limite ENG", "Prioridade", "Status", "Em Estoque"])
 
-# Título
-st.title("Painel de Engenharia - Gestão de Projetos")
+def salvar_dados(df):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(df.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
 
-# Filtros laterais
-with st.sidebar:
-    st.header("Filtros")
-    cliente = st.multiselect("Cliente", df["Cliente"].unique())
-    prioridade = st.multiselect("Prioridade", df["Prioridade"].unique())
-    status = st.multiselect("Status", df["Status"].dropna().unique())
-    estoque = st.radio("Em Estoque", options=["Todos", "Sim", "Não"], index=0)
+# ---------- Layout ----------
+st.title("Painel de Engenharia - Gestão de Projetos (Editável)")
 
-# Aplicação de filtros
-filtro = df.copy()
-if cliente:
-    filtro = filtro[filtro["Cliente"].isin(cliente)]
-if prioridade:
-    filtro = filtro[filtro["Prioridade"].isin(prioridade)]
-if status:
-    filtro = filtro[filtro["Status"].isin(status)]
-if estoque != "Todos":
-    filtro = filtro[filtro["Em Estoque"] == estoque]
+# Carregar dados
+st.session_state.df = carregar_dados() if "df" not in st.session_state else st.session_state.df
 
-# Destaque de urgentes
-def cor_linha(row):
-    if row["Prioridade"] == "URGENTE":
-        return ["background-color: red; color: white"] * len(row)
-    elif row["Status"] == "Estrutura":
-        return ["background-color: #e6f2ff"] * len(row)
-    else:
-        return [""] * len(row)
+# ---------- Adição de novo item ----------
+st.sidebar.header("Adicionar Novo Item")
+with st.sidebar.form("novo_item"):
+    cliente = st.text_input("Cliente")
+    pre_entrega = st.text_input("Pré-entrega (dd/mm)")
+    cod_schumann = st.text_input("Código Schumann")
+    descricao = st.text_area("Descrição")
+    data_limite = st.text_input("Data Limite ENG (dd/mm)")
+    prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
+    status = st.text_input("Status")
+    em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
+    submit = st.form_submit_button("Adicionar")
 
-# Tabela
-st.subheader("Lista de Itens de Engenharia")
-st.dataframe(filtro.style.apply(cor_linha, axis=1), use_container_width=True)
+    if submit:
+        nova_linha = {
+            "Cliente": cliente,
+            "Pré-entrega": pre_entrega,
+            "Código Schumann": cod_schumann,
+            "Descrição": descricao,
+            "Data Limite ENG": data_limite,
+            "Prioridade": prioridade,
+            "Status": status,
+            "Em Estoque": em_estoque
+        }
+        st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
+        salvar_dados(st.session_state.df)
+        st.success("Item adicionado com sucesso.")
 
-# Gráfico de prioridades
-st.subheader("Distribuição de Prioridades")
-st.bar_chart(df["Prioridade"].value_counts())
+# ---------- Edição dos dados ----------
+st.subheader("Editar Tabela de Itens")
+edited_df = st.data_editor(
+    st.session_state.df,
+    num_rows="dynamic",
+    use_container_width=True,
+    key="editavel"
+)
+
+if st.button("Salvar alterações"):
+    st.session_state.df = edited_df
+    salvar_dados(edited_df)
+    st.success("Alterações salvas com sucesso!")
+
+# ---------- Gantt ----------
+st.subheader("Gráfico de Gantt - Prazo Engenharia")
+gantt_df = st.session_state.df.copy()
+gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite ENG"] != "")]
+
+try:
+    gantt_df["Data Limite ENG"] = pd.to_datetime(gantt_df["Data Limite ENG"], format="%d/%m")
+    gantt_df["Start"] = datetime.today()
+    gantt_df["Finish"] = gantt_df["Data Limite ENG"]
+
+    fig = timeline(gantt_df, x_start="Start", x_end="Finish", y="Descrição", color="Prioridade")
+    fig.update_layout(height=500, xaxis_title="Prazo", yaxis_title="Descrição")
+    st.plotly_chart(fig, use_container_width=True)
+except Exception as e:
+    st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
