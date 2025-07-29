@@ -3,7 +3,7 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-from plotly.express import timeline
+import plotly.express as px
 
 st.set_page_config(page_title="Painel de Engenharia - Editável", layout="wide")
 
@@ -78,9 +78,10 @@ try:
     gantt_df["Start"] = datetime.today()
     gantt_df["Finish"] = gantt_df["Data Limite ENG"]
 
-    fig = timeline(gantt_df, x_start="Start", x_end="Finish", y="Descrição", color="Prioridade")
+    fig = px.timeline(gantt_df, x_start="Start", x_end="Finish", y="Descrição", color="Prioridade")
     fig.update_layout(height=500, xaxis_title="Prazo", yaxis_title="Descrição")
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
 
