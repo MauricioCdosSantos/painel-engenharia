@@ -7,6 +7,25 @@ import plotly.express as px
 
 st.set_page_config(page_title="Painel de Engenharia - Editável", layout="wide")
 
+# ---------- Autenticação por usuário e senha ----------
+USERS = {"engenharia": "senha123", "comercial": "senha456"}
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+    st.session_state.usuario = ""
+
+if not st.session_state.autenticado:
+    st.title("Acesso Restrito")
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if usuario in USERS and USERS[usuario] == senha:
+            st.session_state.autenticado = True
+            st.session_state.usuario = usuario
+            st.experimental_rerun()
+        else:
+            st.error("Usuário ou senha inválidos")
+    st.stop()
+
 DATA_FILE = "dados_engenharia.json"
 
 # ---------- Funções auxiliares ----------
@@ -56,6 +75,13 @@ with st.sidebar.form("novo_item"):
 
 # ---------- Edição dos dados ----------
 st.subheader("Editar Tabela de Itens")
+if len(st.session_state.df) > 0:
+    delete_index = st.number_input("Digite o índice da linha para excluir (0 a N):", min_value=0, max_value=len(st.session_state.df)-1, step=1)
+    if st.button("Excluir linha selecionada"):
+        st.session_state.df = st.session_state.df.drop(st.session_state.df.index[delete_index]).reset_index(drop=True)
+        salvar_dados(st.session_state.df)
+        st.success("Linha excluída com sucesso!")
+
 edited_df = st.data_editor(
     st.session_state.df,
     num_rows="dynamic",
@@ -74,7 +100,6 @@ gantt_df = st.session_state.df.copy()
 gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite ENG"] != "")]
 
 try:
-    # Converte datas com ano atual padrão, se omitido
     def parse_data_limite(date_str):
         try:
             return pd.to_datetime(date_str, format="%d/%m/%Y")
@@ -83,13 +108,15 @@ try:
 
     gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
     gantt_df["Start"] = pd.to_datetime("today")
+    gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
+    gantt_df["Cor"] = gantt_df["Atrasado"].map(lambda x: "Atrasado" if x else gantt_df["Prioridade"])
 
     fig = px.timeline(
         gantt_df,
         x_start="Start",
         x_end="Finish",
         y="Descrição",
-        color="Prioridade",
+        color="Cor",
         title="Prazos por Prioridade",
         labels={"Descrição": "Item", "Start": "Início", "Finish": "Prazo"}
     )
