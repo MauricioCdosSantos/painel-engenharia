@@ -8,7 +8,16 @@ import plotly.express as px
 st.set_page_config(page_title="Painel de Engenharia - Editável", layout="wide")
 
 # ---------- Autenticação por usuário e senha ----------
-USERS = {"engenharia": "senha123", "comercial": "senha456"}
+USERS = {
+    "engenharia": "senha123",
+    "comercial": "senha456",
+    "jonatan": "123",
+    "rafael": "123",
+    "felipe": "123",
+    "roberson": "123",
+    "mauricio": "123"
+}
+
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.usuario = ""
@@ -93,15 +102,26 @@ with aba_admin:
             quantidade = st.number_input("Quantidade", min_value=1, step=1)
             em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
             data_limite = st.text_input("Data Limite ENG (dd/mm)")
-            tempo_projeto = st.number_input("Tempo Projeto (dias)", min_value=1, step=1)
+            unidade_projeto = st.selectbox("Unidade de Tempo Projeto", ["min", "h", "dia"])
+            valor_projeto = st.number_input("Valor Tempo Projeto", min_value=0, step=1)
         with col3:
-            tempo_detalhamento = st.number_input("Tempo Detalhamento (dias)", min_value=1, step=1)
+            unidade_detalhamento = st.selectbox("Unidade de Tempo Detalhamento", ["min", "h", "dia"])
+            valor_detalhamento = st.number_input("Valor Tempo Detalhamento", min_value=0, step=1)
             desenhos = st.text_input("Desenhos")
             projetistas = ["Sandro", "Alysson"]
             proj_projeto = st.selectbox("Projetista Projeto", projetistas)
             proj_detalhamento = st.selectbox("Projetista Detalhamento", projetistas)
 
+        def converter_para_horas(valor, unidade):
+            if unidade == "min":
+                return round(valor / 60, 2)
+            elif unidade == "dia":
+                return round(valor * 24, 2)
+            return valor
+
         if st.form_submit_button("Adicionar"):
+            tempo_projeto = converter_para_horas(valor_projeto, unidade_projeto)
+            tempo_detalhamento = converter_para_horas(valor_detalhamento, unidade_detalhamento)
             novo_item = dict(zip(COLUMNS, [
                 prioridade, status, pedido, entrega, cliente, cod_cliente,
                 cod_schumann, descricao, quantidade, em_estoque,
@@ -141,7 +161,7 @@ for i, proj in enumerate(projetistas):
 
         st.subheader(f"Tabela de Itens - {proj}")
         try:
-            st.dataframe(df_proj[COLUMNS[:-2]], use_container_width=True)  # Exibe sem projetistas
+            st.dataframe(df_proj[COLUMNS[:-2]], use_container_width=True)
         except KeyError as e:
             st.warning("Erro ao carregar colunas. Verifique se todos os nomes estão corretos.")
             st.exception(e)
@@ -157,8 +177,8 @@ for i, proj in enumerate(projetistas):
                         return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
                 gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-                gantt_df["Tempo"] = gantt_df.apply(lambda row: int(row["Tempo Projeto"]) if row["Projetista Projeto"] == proj else int(row["Tempo Detalhamento"]), axis=1)
-                gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=x))
+                gantt_df["Tempo"] = gantt_df.apply(lambda row: float(row["Tempo Projeto"]) if row["Projetista Projeto"] == proj else float(row["Tempo Detalhamento"]), axis=1)
+                gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(hours=x))
                 gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
                 gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
@@ -179,4 +199,3 @@ for i, proj in enumerate(projetistas):
                 st.exception(e)
         else:
             st.info("Nenhum dado disponível para este projetista.")
-
