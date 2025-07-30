@@ -99,4 +99,3 @@ else:
     filtrado = df[(df["Projetista Projeto"].str.lower() == nome_projetista) | (df["Projetista Detalhamento"].str.lower() == nome_projetista)]
     st.subheader(f"Tarefas do Projetista: {nome_projetista.capitalize()}")
     st.dataframe(filtrado, use_container_width=True)
-
