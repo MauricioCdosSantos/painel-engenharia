@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
 
 st.set_page_config(page_title="Painel de Engenharia - Editável", layout="wide")
@@ -36,7 +36,7 @@ def carregar_dados():
     return pd.DataFrame(columns=[
         "Cliente", "Pré-entrega", "Código Schumann", "Descrição",
         "Data Limite ENG", "Prioridade", "Status", "Em Estoque",
-        "Engenharia", "Comercial", "Observações"
+        "Engenharia", "Comercial", "Observações", "Tempo Estimado"
     ])
 
 def salvar_dados(df):
@@ -76,10 +76,11 @@ with st.sidebar.form("novo_item"):
     cod_schumann = st.text_input("Código Schumann")
     descricao = st.text_area("Descrição")
     data_limite = st.text_input("Data Limite ENG (dd/mm/yyyy)")
+    tempo_estimado = st.number_input("Tempo Estimado (dias)", min_value=1, step=1)
     prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
     status = st.selectbox("Status", ["esperando", "fazendo", "concluído"])
     em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
-    engenharia = st.text_input("Responsável Engenharia")
+    engenharia = st.selectbox("Responsável Engenharia", ["Sandro", "Alysson"])
     comercial = st.text_input("Responsável Comercial")
     observacoes = st.text_area("Observações")
     submit = st.form_submit_button("Adicionar")
@@ -96,7 +97,8 @@ with st.sidebar.form("novo_item"):
             "Em Estoque": em_estoque,
             "Engenharia": engenharia,
             "Comercial": comercial,
-            "Observações": observacoes
+            "Observações": observacoes,
+            "Tempo Estimado": tempo_estimado
         }
         st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
         salvar_dados(st.session_state.df)
@@ -119,7 +121,8 @@ edited_df = st.data_editor(
     column_config={
         "Prioridade": st.column_config.SelectboxColumn("Prioridade", options=["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"]),
         "Status": st.column_config.SelectboxColumn("Status", options=["esperando", "fazendo", "concluído"]),
-        "Em Estoque": st.column_config.SelectboxColumn("Em Estoque", options=["Sim", "Não"])
+        "Em Estoque": st.column_config.SelectboxColumn("Em Estoque", options=["Sim", "Não"]),
+        "Engenharia": st.column_config.SelectboxColumn("Engenharia", options=["Sandro", "Alysson"])
     }
 )
 
@@ -141,7 +144,7 @@ try:
             return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
     gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-    gantt_df["Start"] = pd.to_datetime("today")
+    gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo Estimado"].apply(lambda x: timedelta(days=int(x)))
     gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
     gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
@@ -164,5 +167,6 @@ try:
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
 
 
