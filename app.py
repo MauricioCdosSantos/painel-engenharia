@@ -69,12 +69,76 @@ if filtro_status:
 if filtro_estoque != "Todos":
     df_filtrado = df_filtrado[df_filtrado["Em Estoque"] == filtro_estoque]
 
+# ---------- Abas ----------
+aba_admin, *abas_projetistas = st.tabs(["Administração", "Projetista: Sandro", "Projetista: Alysson"])
+
+# ---------- Aba Administração ----------
+with aba_admin:
+    st.subheader("Adicionar Novo Item")
+    with st.form("form_administracao"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            prioridade = st.selectbox("Prioridade", ["1", "2", "3"])
+            status = st.selectbox("Status", ["esperando", "fazendo", "feito"])
+            pedido = st.text_input("Nº Pedido")
+            entrega = st.text_input("Data Entrega Pedido (dd/mm)")
+            cliente = st.text_input("Cliente")
+            cod_cliente = st.text_input("Cód. Cliente")
+        with col2:
+            cod_schumann = st.text_input("Código Schumann")
+            descricao = st.text_input("Descrição do item")
+            quantidade = st.number_input("Quantidade", min_value=1, step=1)
+            em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
+            data_limite = st.text_input("Data Limite ENG (dd/mm)")
+            tempo_estimado = st.number_input("Tempo Estimado (dias)", min_value=1, step=1)
+        with col3:
+            desenhos = st.text_input("Desenhos")
+            projetistas = ["Sandro", "Alysson"]
+            proj_projeto = st.selectbox("Projetista Projeto", projetistas)
+            proj_detalhamento = st.selectbox("Projetista Detalhamento", projetistas)
+
+        if st.form_submit_button("Adicionar"):
+            novo_item = {
+                "Prioridade": prioridade,
+                "Status": status,
+                "Nº Pedido": pedido,
+                "Data Entrega Pedido": entrega,
+                "Cliente": cliente,
+                "Cód. Cliente": cod_cliente,
+                "Código Schumann": cod_schumann,
+                "Descrição do item": descricao,
+                "Quantidade": quantidade,
+                "Em Estoque": em_estoque,
+                "Data Limite ENG": data_limite,
+                "Tempo Estimado": tempo_estimado,
+                "Desenhos": desenhos,
+                "Projetista Projeto": proj_projeto,
+                "Projetista Detalhamento": proj_detalhamento
+            }
+            st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([novo_item])], ignore_index=True)
+            salvar_dados(st.session_state.df)
+            st.success("Item adicionado com sucesso.")
+            st.rerun()
+
+    st.subheader("Excluir Item")
+    index_excluir = st.text_input("Digite o índice da linha para excluir")
+    if st.button("Excluir linha selecionada"):
+        if index_excluir.isdigit() and int(index_excluir) in st.session_state.df.index:
+            st.session_state.df.drop(index=int(index_excluir), inplace=True)
+            st.session_state.df.reset_index(drop=True, inplace=True)
+            salvar_dados(st.session_state.df)
+            st.success("Linha excluída com sucesso.")
+            st.rerun()
+        else:
+            st.warning("Índice inválido")
+
+    st.subheader("Tabela Completa")
+    st.dataframe(st.session_state.df, use_container_width=True)
+
 # ---------- Abas por Projetista ----------
 projetistas = ["Sandro", "Alysson"]
-abas = st.tabs([f"Projetista: {p}" for p in projetistas])
-
 for i, proj in enumerate(projetistas):
-    with abas[i]:
+    with abas_projetistas[i]:
         df_proj = df_filtrado[(df_filtrado["Projetista Projeto"] == proj) | (df_filtrado["Projetista Detalhamento"] == proj)]
 
         st.subheader(f"Tabela de Itens - {proj}")
@@ -87,51 +151,6 @@ for i, proj in enumerate(projetistas):
         except KeyError as e:
             st.warning("Erro ao carregar colunas. Verifique se todos os nomes estão corretos.")
             st.exception(e)
-
-        st.subheader("Adicionar Novo Item")
-        with st.form(f"form_adicao_{proj}"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                prioridade = st.selectbox("Prioridade", ["1", "2", "3"])
-                status = st.selectbox("Status", ["esperando", "fazendo", "feito"])
-                pedido = st.text_input("Nº Pedido")
-                entrega = st.text_input("Data Entrega Pedido (dd/mm)")
-                cliente = st.text_input("Cliente")
-            with col2:
-                cod_cliente = st.text_input("Cód. Cliente")
-                cod_schumann = st.text_input("Código Schumann")
-                descricao = st.text_input("Descrição do item")
-                quantidade = st.number_input("Quantidade", min_value=1, step=1)
-                em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
-            with col3:
-                data_limite = st.text_input("Data Limite ENG (dd/mm)")
-                tempo_estimado = st.number_input("Tempo Estimado (dias)", min_value=1, step=1)
-                desenhos = st.text_input("Desenhos")
-                proj_projeto = st.selectbox("Projetista Projeto", projetistas)
-                proj_detalhamento = st.selectbox("Projetista Detalhamento", projetistas)
-
-            if st.form_submit_button("Adicionar"):
-                novo_item = {
-                    "Prioridade": prioridade,
-                    "Status": status,
-                    "Nº Pedido": pedido,
-                    "Data Entrega Pedido": entrega,
-                    "Cliente": cliente,
-                    "Cód. Cliente": cod_cliente,
-                    "Código Schumann": cod_schumann,
-                    "Descrição do item": descricao,
-                    "Quantidade": quantidade,
-                    "Em Estoque": em_estoque,
-                    "Data Limite ENG": data_limite,
-                    "Tempo Estimado": tempo_estimado,
-                    "Desenhos": desenhos,
-                    "Projetista Projeto": proj_projeto,
-                    "Projetista Detalhamento": proj_detalhamento
-                }
-                st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([novo_item])], ignore_index=True)
-                salvar_dados(st.session_state.df)
-                st.success("Item adicionado com sucesso.")
-                st.rerun()
 
         st.subheader(f"Gráfico de Gantt - {proj}")
         gantt_df = df_proj[df_proj["Data Limite ENG"].notna() & (df_proj["Data Limite ENG"] != "")].copy()
@@ -164,4 +183,5 @@ for i, proj in enumerate(projetistas):
         except Exception as e:
             st.warning("Não foi possível gerar o gráfico de Gantt para este projetista. Verifique os dados de datas.")
             st.exception(e)
+
 
