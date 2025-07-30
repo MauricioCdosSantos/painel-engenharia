@@ -145,5 +145,3 @@ def enviar_email_finalizacao(usuario, projeto):
             server.send_message(msg)
     except Exception as e:
         st.warning(f"Falha ao enviar e-mail: {e}")
-
-
