@@ -77,7 +77,7 @@ with st.sidebar.form("novo_item"):
     descricao = st.text_area("Descrição")
     data_limite = st.text_input("Data Limite ENG (dd/mm/yyyy)")
     prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
-    status = st.text_input("Status")
+    status = st.selectbox("Status", ["esperando", "fazendo", "concluído"])
     em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
     engenharia = st.text_input("Responsável Engenharia")
     comercial = st.text_input("Responsável Comercial")
@@ -105,9 +105,9 @@ with st.sidebar.form("novo_item"):
 # ---------- Edição dos dados ----------
 st.subheader("Editar Tabela de Itens")
 if len(df_filtrado) > 0:
-    delete_index = st.number_input("Digite o índice da linha para excluir (0 a N):", min_value=0, max_value=len(st.session_state.df)-1, step=1)
+    linha_excluir = st.selectbox("Selecione a linha para excluir:", df_filtrado.index)
     if st.button("Excluir linha selecionada"):
-        st.session_state.df = st.session_state.df.drop(st.session_state.df.index[delete_index]).reset_index(drop=True)
+        st.session_state.df = st.session_state.df.drop(linha_excluir).reset_index(drop=True)
         salvar_dados(st.session_state.df)
         st.success("Linha excluída com sucesso!")
 
@@ -115,7 +115,12 @@ edited_df = st.data_editor(
     df_filtrado,
     num_rows="dynamic",
     use_container_width=True,
-    key="editavel"
+    key="editavel",
+    column_config={
+        "Prioridade": st.column_config.SelectboxColumn("Prioridade", options=["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"]),
+        "Status": st.column_config.SelectboxColumn("Status", options=["esperando", "fazendo", "concluído"]),
+        "Em Estoque": st.column_config.SelectboxColumn("Em Estoque", options=["Sim", "Não"])
+    }
 )
 
 if st.button("Salvar alterações"):
