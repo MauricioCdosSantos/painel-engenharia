@@ -158,6 +158,7 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         projetos_disponiveis = filtrado[filtrado["Status"] != "feito"]["Descrição do item"].dropna().unique().tolist()
         projeto_atual = st.selectbox("Selecionar projeto", [""] + projetos_disponiveis, key=f"proj_{nome_projetista}")
 
+        motivo = st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
         col1, col2, col3 = st.columns([1, 1, 1])
         if projeto_atual:
             if col1.button("Iniciar", key=f"ini_{nome_projetista}"):
@@ -167,7 +168,6 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
                 st.rerun()
 
             if col2.button("Parar", key=f"stop_{nome_projetista}"):
-                motivo = st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
                 if motivo:
                     registrar_tempo(nome_projetista, projeto_atual, "parada", motivo)
                     st.success("Parada registrada.")
@@ -193,6 +193,7 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
                 color="acao",
                 title=f"Atividades - {nome_projetista.capitalize()}"
             )
+            fig.update_yaxes(categoryorder='total ascending')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Nenhum dado de tempo registrado para este projetista.")
@@ -212,6 +213,7 @@ with abas[3]:
             x_start="timestamp", x_end="timestamp", y="usuario",
             color="acao", title="Atividades"
         )
+        fig.update_yaxes(categoryorder='total ascending')
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Nenhum dado de tempo registrado.")
