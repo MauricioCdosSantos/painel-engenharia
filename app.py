@@ -34,11 +34,10 @@ def carregar_dados():
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             return pd.DataFrame(json.load(f))
     return pd.DataFrame(columns=[
-        "Cliente", "Pré-entrega", "Código Schumann", "Descrição",
-        "Data Limite ENG", "Prioridade", "Status", "Em Estoque",
-        "Projetista Projeto", "Projetista Detalhamento",
-        "Tempo Projeto", "Tempo Detalhamento",
-        "Engenharia", "Comercial", "Observações"
+        "Prioridade", "Status", "Nº Pedido", "Data Entrega Pedido", "Cliente",
+        "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
+        "Em Estoque", "Data Limite ENG", "Tempo Estimado", "Desenhos",
+        "Projetista Projeto", "Projetista Detalhamento"
     ])
 
 def salvar_dados(df):
@@ -76,7 +75,7 @@ abas = st.tabs([f"Projetista: {p}" for p in projetistas])
 
 for i, proj in enumerate(projetistas):
     with abas[i]:
-        df_proj = df_filtrado[df_filtrado["Engenharia"] == proj]
+        df_proj = df_filtrado[(df_filtrado["Projetista Projeto"] == proj) | (df_filtrado["Projetista Detalhamento"] == proj)]
 
         st.subheader(f"Tabela de Itens - {proj}")
         st.dataframe(df_proj, use_container_width=True)
@@ -92,9 +91,7 @@ for i, proj in enumerate(projetistas):
                     return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
             gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-            gantt_df["Tempo"] = gantt_df.apply(
-                lambda row: row["Tempo Projeto"] if "Projeto" in row["Descrição"] else row["Tempo Detalhamento"], axis=1
-            )
+            gantt_df["Tempo"] = gantt_df["Tempo Estimado"].fillna(0).astype(int)
             gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=int(x)))
             gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
             gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
@@ -103,17 +100,16 @@ for i, proj in enumerate(projetistas):
                 gantt_df,
                 x_start="Start",
                 x_end="Finish",
-                y="Descrição",
+                y="Descrição do item",
                 color="Cor",
                 title=f"Prazos por Prioridade - {proj}",
-                labels={"Descrição": "Item", "Start": "Início", "Finish": "Prazo"}
+                labels={"Descrição do item": "Item", "Start": "Início", "Finish": "Prazo"}
             )
             fig.update_yaxes(autorange="reversed")
             fig.update_layout(height=500, bargap=0.2)
             st.plotly_chart(fig, use_container_width=True)
         except Exception:
             st.warning("Não foi possível gerar o gráfico de Gantt para este projetista. Verifique os dados de datas.")
-
 
 
 
