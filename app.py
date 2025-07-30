@@ -86,3 +86,17 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
 st.title("Painel de Engenharia")
 df = carregar_dados()
 st.dataframe(df, use_container_width=True)
+
+# Exibe abas por usuário
+abas = ["Administração"] + [f"Projetista: {nome.capitalize()}" for nome in USERS.keys()]
+aba = st.selectbox("Selecione a aba", abas)
+
+if aba == "Administração":
+    st.subheader("Tabela Completa")
+    st.dataframe(df, use_container_width=True)
+else:
+    nome_projetista = aba.split(": ")[1].lower()
+    filtrado = df[(df["Projetista Projeto"].str.lower() == nome_projetista) | (df["Projetista Detalhamento"].str.lower() == nome_projetista)]
+    st.subheader(f"Tarefas do Projetista: {nome_projetista.capitalize()}")
+    st.dataframe(filtrado, use_container_width=True)
+
