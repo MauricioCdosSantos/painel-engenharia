@@ -82,20 +82,60 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
     with open(TEMPOS_FILE, "w", encoding="utf-8") as f:
         json.dump(registros, f, indent=4, ensure_ascii=False)
 
+def carregar_tempos():
+    if os.path.exists(TEMPOS_FILE):
+        with open(TEMPOS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
 # ---------- Interface principal ----------
 st.title("Painel de Engenharia")
 df = carregar_dados()
 st.dataframe(df, use_container_width=True)
 
 # Exibe abas por usuário
-abas = ["Administração"] + [f"Projetista: {nome.capitalize()}" for nome in USERS.keys()]
+abas = ["Administração"] + [f"Projetista: {nome.capitalize()}" for nome in USERS.keys()] + ["Indicadores"]
 aba = st.selectbox("Selecione a aba", abas)
 
 if aba == "Administração":
     st.subheader("Tabela Completa")
     st.dataframe(df, use_container_width=True)
+
+elif aba == "Indicadores":
+    tempos = carregar_tempos()
+    registros_df = pd.DataFrame(tempos)
+    if not registros_df.empty:
+        registros_df["timestamp"] = pd.to_datetime(registros_df["timestamp"])
+        registros_df["data"] = registros_df["timestamp"].dt.date
+        tempo_total = registros_df.groupby("usuario")["timestamp"].count().reset_index(name="Eventos")
+        st.subheader("Resumo de Eventos por Usuário")
+        st.dataframe(tempo_total, use_container_width=True)
+
+        st.subheader("Linha do Tempo de Ações")
+        fig = px.timeline(registros_df.sort_values(by="timestamp"), x_start="timestamp", x_end="timestamp", y="usuario", color="acao", title="Ações dos Projetistas")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Nenhum dado de tempo registrado ainda.")
+
 else:
     nome_projetista = aba.split(": ")[1].lower()
     filtrado = df[(df["Projetista Projeto"].str.lower() == nome_projetista) | (df["Projetista Detalhamento"].str.lower() == nome_projetista)]
     st.subheader(f"Tarefas do Projetista: {nome_projetista.capitalize()}")
     st.dataframe(filtrado, use_container_width=True)
+
+    projetos_disponiveis = filtrado["Descrição do item"].unique().tolist()
+    projeto_atual = st.selectbox("Selecione o projeto que está trabalhando", [""] + projetos_disponiveis)
+
+    if projeto_atual:
+        col1, col2, col3 = st.columns(3)
+        if col1.button("Iniciar Projeto"):
+            registrar_tempo(st.session_state.usuario, projeto_atual, "inicio")
+            st.success("Início registrado.")
+        if col2.button("Parar Projeto"):
+            motivo = st.text_input("Informe o motivo da parada")
+            if motivo:
+                registrar_tempo(st.session_state.usuario, projeto_atual, "parada", motivo)
+                st.success("Parada registrada.")
+        if col3.button("Finalizar Projeto"):
+            registrar_tempo(st.session_state.usuario, projeto_atual, "fim")
+            st.success("Projeto finalizado.")
