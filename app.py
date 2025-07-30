@@ -21,7 +21,7 @@ if not st.session_state.autenticado:
         if usuario in USERS and USERS[usuario] == senha:
             st.session_state.autenticado = True
             st.session_state.usuario = usuario
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Usuário ou senha inválidos")
     st.stop()
@@ -33,7 +33,11 @@ def carregar_dados():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             return pd.DataFrame(json.load(f))
-    return pd.DataFrame(columns=["Cliente", "Pré-entrega", "Código Schumann", "Descrição", "Data Limite ENG", "Prioridade", "Status", "Em Estoque"])
+    return pd.DataFrame(columns=[
+        "Cliente", "Pré-entrega", "Código Schumann", "Descrição",
+        "Data Limite ENG", "Prioridade", "Status", "Em Estoque",
+        "Engenharia", "Comercial", "Observações"
+    ])
 
 def salvar_dados(df):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -46,6 +50,24 @@ st.caption(f"Usuário logado: {st.session_state.usuario}")
 # Carregar dados
 st.session_state.df = carregar_dados() if "df" not in st.session_state else st.session_state.df
 
+# ---------- Filtros ----------
+st.sidebar.header("Filtros")
+filtro_cliente = st.sidebar.multiselect("Cliente", options=st.session_state.df["Cliente"].unique())
+filtro_prioridade = st.sidebar.multiselect("Prioridade", options=st.session_state.df["Prioridade"].unique())
+filtro_status = st.sidebar.multiselect("Status", options=st.session_state.df["Status"].unique())
+filtro_estoque = st.sidebar.radio("Em Estoque", options=["Todos", "Sim", "Não"], index=0)
+
+# ---------- Aplicar filtros ----------
+df_filtrado = st.session_state.df.copy()
+if filtro_cliente:
+    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(filtro_cliente)]
+if filtro_prioridade:
+    df_filtrado = df_filtrado[df_filtrado["Prioridade"].isin(filtro_prioridade)]
+if filtro_status:
+    df_filtrado = df_filtrado[df_filtrado["Status"].isin(filtro_status)]
+if filtro_estoque != "Todos":
+    df_filtrado = df_filtrado[df_filtrado["Em Estoque"] == filtro_estoque]
+
 # ---------- Adição de novo item ----------
 st.sidebar.header("Adicionar Novo Item")
 with st.sidebar.form("novo_item"):
@@ -57,6 +79,9 @@ with st.sidebar.form("novo_item"):
     prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
     status = st.text_input("Status")
     em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
+    engenharia = st.text_input("Responsável Engenharia")
+    comercial = st.text_input("Responsável Comercial")
+    observacoes = st.text_area("Observações")
     submit = st.form_submit_button("Adicionar")
 
     if submit:
@@ -68,7 +93,10 @@ with st.sidebar.form("novo_item"):
             "Data Limite ENG": data_limite,
             "Prioridade": prioridade,
             "Status": status,
-            "Em Estoque": em_estoque
+            "Em Estoque": em_estoque,
+            "Engenharia": engenharia,
+            "Comercial": comercial,
+            "Observações": observacoes
         }
         st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
         salvar_dados(st.session_state.df)
@@ -76,7 +104,7 @@ with st.sidebar.form("novo_item"):
 
 # ---------- Edição dos dados ----------
 st.subheader("Editar Tabela de Itens")
-if len(st.session_state.df) > 0:
+if len(df_filtrado) > 0:
     delete_index = st.number_input("Digite o índice da linha para excluir (0 a N):", min_value=0, max_value=len(st.session_state.df)-1, step=1)
     if st.button("Excluir linha selecionada"):
         st.session_state.df = st.session_state.df.drop(st.session_state.df.index[delete_index]).reset_index(drop=True)
@@ -84,7 +112,7 @@ if len(st.session_state.df) > 0:
         st.success("Linha excluída com sucesso!")
 
 edited_df = st.data_editor(
-    st.session_state.df,
+    df_filtrado,
     num_rows="dynamic",
     use_container_width=True,
     key="editavel"
@@ -97,7 +125,7 @@ if st.button("Salvar alterações"):
 
 # ---------- Gantt ----------
 st.subheader("Gráfico de Gantt - Prazo Engenharia")
-gantt_df = st.session_state.df.copy()
+gantt_df = df_filtrado.copy()
 gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite ENG"] != "")]
 
 try:
@@ -131,4 +159,5 @@ try:
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
 
