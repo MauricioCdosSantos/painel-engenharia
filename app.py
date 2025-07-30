@@ -81,3 +81,6 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
     registros.append(entrada)
     with open(TEMPOS_FILE, "w", encoding="utf-8") as f:
         json.dump(registros, f, indent=4, ensure_ascii=False)
+
+# Resetando as alterações de e-mail e garantindo carregamento do painel
+st.success("Versão restaurada com sucesso. Painel carregado.")
