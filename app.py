@@ -147,4 +147,3 @@ def enviar_email_finalizacao(usuario, projeto):
         st.warning(f"Falha ao enviar e-mail: {e}")
 
 
-
