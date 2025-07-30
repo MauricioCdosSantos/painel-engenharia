@@ -15,7 +15,6 @@ USERS = {
     "rafael": "123",
     "felipe": "123",
     "roberson": "123",
-    "ianca": "123",
     "mauricio": "123"
 }
 
@@ -37,6 +36,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 DATA_FILE = "dados_engenharia.json"
+TEMPOS_FILE = "tempos_execucao.json"
 COLUMNS = [
     "Prioridade", "Status", "Nº Pedido", "Data Entrega Pedido", "Cliente",
     "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
@@ -55,6 +55,23 @@ def carregar_dados():
 def salvar_dados(df):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(df.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
+
+def registrar_tempo(usuario, projeto, acao, motivo=None):
+    entrada = {
+        "usuario": usuario,
+        "projeto": projeto,
+        "acao": acao,
+        "motivo": motivo,
+        "timestamp": datetime.now().isoformat()
+    }
+    if os.path.exists(TEMPOS_FILE):
+        with open(TEMPOS_FILE, "r", encoding="utf-8") as f:
+            registros = json.load(f)
+    else:
+        registros = []
+    registros.append(entrada)
+    with open(TEMPOS_FILE, "w", encoding="utf-8") as f:
+        json.dump(registros, f, indent=4, ensure_ascii=False)
 
 # ---------- Layout ----------
 st.title("Painel de Engenharia - Gestão de Projetos (Editável)")
@@ -83,10 +100,10 @@ if filtro_estoque != "Todos":
     df_filtrado = df_filtrado[df_filtrado["Em Estoque"] == filtro_estoque]
 
 # ---------- Abas ----------
-aba_admin, *abas_projetistas = st.tabs(["Administração", "Projetista: Sandro", "Projetista: Alysson"])
+abas = st.tabs(["Administração", "Projetista: Sandro", "Projetista: Alysson", "Indicadores"])
 
 # ---------- Aba Administração ----------
-with aba_admin:
+with abas[0]:
     st.subheader("Adicionar Novo Item")
     with st.form("form_administracao"):
         col1, col2, col3 = st.columns(3)
@@ -154,25 +171,30 @@ with aba_admin:
 # ---------- Abas por Projetista ----------
 projetistas = ["Sandro", "Alysson"]
 for i, proj in enumerate(projetistas):
-    with abas_projetistas[i]:
-        if "Projetista Projeto" in df_filtrado.columns and "Projetista Detalhamento" in df_filtrado.columns:
-            df_proj = df_filtrado[(df_filtrado["Projetista Projeto"] == proj) | (df_filtrado["Projetista Detalhamento"] == proj)]
-        else:
-            df_proj = pd.DataFrame(columns=COLUMNS)
-
+    with abas[i+1]:
+        df_proj = df_filtrado[(df_filtrado["Projetista Projeto"] == proj) | (df_filtrado["Projetista Detalhamento"] == proj)]
         st.subheader(f"Projeto Atual - {proj}")
-        projetos_disponiveis = df_proj["Descrição do item"].dropna().unique().tolist()
+        projetos_disponiveis = df_proj[df_proj["Status"] != "feito"]["Descrição do item"].dropna().unique().tolist()
         projeto_selecionado = st.selectbox("Selecione o projeto que está sendo executado", options=projetos_disponiveis, key=f"projeto_{proj}")
+
         if projeto_selecionado:
-            if st.button(f"Iniciar projeto - {projeto_selecionado}", key=f"iniciar_{proj}"):
+            if st.button(f"Iniciar projeto", key=f"iniciar_{proj}"):
                 st.session_state[f"inicio_{proj}"] = datetime.now()
-            if f"inicio_{proj}" in st.session_state:
-                st.write(f"Iniciado em: {st.session_state[f'inicio_{proj}'].strftime('%d/%m %H:%M')}")
-                if st.button(f"Finalizar projeto - {projeto_selecionado}", key=f"finalizar_{proj}"):
-                    fim = datetime.now()
-                    tempo_total = fim - st.session_state[f"inicio_{proj}"]
-                    st.success(f"Tempo total no projeto: {tempo_total}")
-                    del st.session_state[f"inicio_{proj}"]
+                st.session_state.df.loc[st.session_state.df["Descrição do item"] == projeto_selecionado, "Status"] = "fazendo"
+                salvar_dados(st.session_state.df)
+                registrar_tempo(proj, projeto_selecionado, "inicio")
+                st.rerun()
+            if st.button("Parar projeto", key=f"parar_{proj}"):
+                motivo = st.text_input("Motivo da parada", key=f"motivo_{proj}")
+                if motivo:
+                    registrar_tempo(proj, projeto_selecionado, "parada", motivo)
+                    st.success("Parada registrada")
+            if st.button("Finalizar projeto", key=f"finalizar_{proj}"):
+                registrar_tempo(proj, projeto_selecionado, "fim")
+                st.session_state.df.loc[st.session_state.df["Descrição do item"] == projeto_selecionado, "Status"] = "feito"
+                salvar_dados(st.session_state.df)
+                st.success("Projeto finalizado")
+                st.rerun()
 
         st.subheader(f"Tabela de Itens - {proj}")
         try:
@@ -214,4 +236,21 @@ for i, proj in enumerate(projetistas):
                 st.exception(e)
         else:
             st.info("Nenhum dado disponível para este projetista.")
+
+# ---------- Indicadores ----------
+with abas[-1]:
+    st.subheader("Indicadores de Tempo de Projetos")
+    if os.path.exists(TEMPOS_FILE):
+        with open(TEMPOS_FILE, "r", encoding="utf-8") as f:
+            registros = json.load(f)
+        df_tempos = pd.DataFrame(registros)
+        df_tempos["timestamp"] = pd.to_datetime(df_tempos["timestamp"])
+
+        tempo_execucao = df_tempos.pivot_table(index=["usuario", "projeto"], columns="acao", values="timestamp", aggfunc="first").reset_index()
+        tempo_execucao["duracao"] = (tempo_execucao["fim"] - tempo_execucao["inicio"]).dt.total_seconds() / 3600
+        st.dataframe(tempo_execucao.dropna(subset=["duracao"]), use_container_width=True)
+        st.bar_chart(tempo_execucao.set_index("projeto")["duracao"])
+    else:
+        st.info("Nenhuma execução registrada ainda.")
+
 
