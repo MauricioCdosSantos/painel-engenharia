@@ -21,7 +21,7 @@ if not st.session_state.autenticado:
         if usuario in USERS and USERS[usuario] == senha:
             st.session_state.autenticado = True
             st.session_state.usuario = usuario
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
     st.stop()
