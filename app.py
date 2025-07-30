@@ -36,7 +36,9 @@ def carregar_dados():
     return pd.DataFrame(columns=[
         "Cliente", "Pré-entrega", "Código Schumann", "Descrição",
         "Data Limite ENG", "Prioridade", "Status", "Em Estoque",
-        "Engenharia", "Comercial", "Observações", "Tempo Estimado"
+        "Projetista Projeto", "Projetista Detalhamento",
+        "Tempo Projeto", "Tempo Detalhamento",
+        "Engenharia", "Comercial", "Observações"
     ])
 
 def salvar_dados(df):
@@ -76,31 +78,41 @@ with st.sidebar.form("novo_item"):
     cod_schumann = st.text_input("Código Schumann")
     descricao = st.text_area("Descrição")
     data_limite = st.text_input("Data Limite ENG (dd/mm/yyyy)")
-    tempo_estimado = st.number_input("Tempo Estimado (dias)", min_value=1, step=1)
+    tempo_projeto = st.number_input("Tempo Projeto (dias)", min_value=1, step=1)
+    tempo_detalhamento = st.number_input("Tempo Detalhamento (dias)", min_value=1, step=1)
     prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
     status = st.selectbox("Status", ["esperando", "fazendo", "concluído"])
     em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
+    proj_projeto = st.selectbox("Projetista Projeto", ["Sandro", "Alysson"])
+    proj_detalhamento = st.selectbox("Projetista Detalhamento", ["Sandro", "Alysson"])
     engenharia = st.selectbox("Responsável Engenharia", ["Sandro", "Alysson"])
     comercial = st.text_input("Responsável Comercial")
     observacoes = st.text_area("Observações")
     submit = st.form_submit_button("Adicionar")
 
     if submit:
-        nova_linha = {
-            "Cliente": cliente,
-            "Pré-entrega": pre_entrega,
-            "Código Schumann": cod_schumann,
-            "Descrição": descricao,
-            "Data Limite ENG": data_limite,
-            "Prioridade": prioridade,
-            "Status": status,
-            "Em Estoque": em_estoque,
-            "Engenharia": engenharia,
-            "Comercial": comercial,
-            "Observações": observacoes,
-            "Tempo Estimado": tempo_estimado
-        }
-        st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
+        for proj, tempo, etapa in [
+            (proj_projeto, tempo_projeto, "Projeto"),
+            (proj_detalhamento, tempo_detalhamento, "Detalhamento")
+        ]:
+            nova_linha = {
+                "Cliente": cliente,
+                "Pré-entrega": pre_entrega,
+                "Código Schumann": cod_schumann,
+                "Descrição": f"{descricao} - {etapa}",
+                "Data Limite ENG": data_limite,
+                "Prioridade": prioridade,
+                "Status": status,
+                "Em Estoque": em_estoque,
+                "Projetista Projeto": proj_projeto,
+                "Projetista Detalhamento": proj_detalhamento,
+                "Tempo Projeto": tempo_projeto,
+                "Tempo Detalhamento": tempo_detalhamento,
+                "Engenharia": proj,
+                "Comercial": comercial,
+                "Observações": observacoes
+            }
+            st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
         salvar_dados(st.session_state.df)
         st.success("Item adicionado com sucesso.")
 
@@ -144,7 +156,10 @@ try:
             return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
     gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-    gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo Estimado"].apply(lambda x: timedelta(days=int(x)))
+    gantt_df["Tempo"] = gantt_df.apply(
+        lambda row: row["Tempo Projeto"] if "Projeto" in row["Descrição"] else row["Tempo Detalhamento"], axis=1
+    )
+    gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=int(x)))
     gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
     gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
@@ -167,6 +182,7 @@ try:
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
 
 
 
