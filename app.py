@@ -21,7 +21,7 @@ if not st.session_state.autenticado:
         if usuario in USERS and USERS[usuario] == senha:
             st.session_state.autenticado = True
             st.session_state.usuario = usuario
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
     st.stop()
@@ -130,21 +130,15 @@ gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite
 
 try:
     def parse_data_limite(date_str):
-    if pd.isna(date_str) or not isinstance(date_str, str) or len(date_str.strip()) < 4:
-        return None
-    try:
-        return pd.to_datetime(date_str, format="%d/%m/%Y")
-    except:
         try:
-            return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
+            return pd.to_datetime(date_str, format="%d/%m/%Y")
         except:
-            return None
+            return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
     gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-    gantt_df = gantt_df[gantt_df["Finish"].notna()]
     gantt_df["Start"] = pd.to_datetime("today")
     gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
-    gantt_df["Cor"] = gantt_df["Atrasado"].map(lambda x: "Atrasado" if x else gantt_df["Prioridade"])
+    gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
     fig = px.timeline(
         gantt_df,
