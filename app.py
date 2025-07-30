@@ -75,7 +75,11 @@ def carregar_dados():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return pd.DataFrame(data).reindex(columns=COLUMNS)
+            df = pd.DataFrame(data)
+            for col in COLUMNS:
+                if col not in df.columns:
+                    df[col] = None
+            return df[COLUMNS]
     return pd.DataFrame(columns=COLUMNS)
 
 def salvar_dados(df):
@@ -100,10 +104,14 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
         json.dump(registros, f, indent=4, ensure_ascii=False)
 
 def enviar_email_finalizacao(usuario, projeto):
-    smtp_user = st.secrets["email"]["smtp_user"]
-    smtp_pass = st.secrets["email"]["smtp_pass"]
-    smtp_server = st.secrets["email"]["smtp_server"]
-    smtp_port = st.secrets["email"]["smtp_port"]
+    try:
+        smtp_user = st.secrets["email"]["smtp_user"]
+        smtp_pass = st.secrets["email"]["smtp_pass"]
+        smtp_server = st.secrets["email"]["smtp_server"]
+        smtp_port = st.secrets["email"]["smtp_port"]
+    except Exception as e:
+        st.error("Erro ao carregar configurações de e-mail do secrets.toml")
+        return
 
     destinatarios = []
     incluir_indicadores = False
