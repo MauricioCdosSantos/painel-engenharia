@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import plotly.express as px
 
 st.set_page_config(page_title="Painel de Engenharia", layout="wide")
@@ -81,9 +81,8 @@ def carregar_tempos():
             return json.load(f)
     return []
 
-st.title("Painel de Engenharia")
 df = carregar_dados()
-
+st.title("Painel de Engenharia")
 abas = st.tabs(["Administração", "Projetista: Sandro", "Projetista: Alysson", "Indicadores"])
 
 with abas[0]:
@@ -159,7 +158,7 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         projetos_disponiveis = filtrado[filtrado["Status"] != "feito"]["Descrição do item"].dropna().unique().tolist()
         projeto_atual = st.selectbox("Selecionar projeto", [""] + projetos_disponiveis, key=f"proj_{nome_projetista}")
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([1, 1, 1])
         if projeto_atual:
             if col1.button("Iniciar", key=f"ini_{nome_projetista}"):
                 df.loc[df["Descrição do item"] == projeto_atual, "Status"] = "fazendo"
@@ -167,16 +166,36 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
                 registrar_tempo(nome_projetista, projeto_atual, "inicio")
                 st.rerun()
 
-            motivo = col2.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
-            if col2.button("Parar", key=f"stop_{nome_projetista}") and motivo:
-                registrar_tempo(nome_projetista, projeto_atual, "parada", motivo)
-                st.success("Parada registrada.")
+            if col2.button("Parar", key=f"stop_{nome_projetista}"):
+                motivo = st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
+                if motivo:
+                    registrar_tempo(nome_projetista, projeto_atual, "parada", motivo)
+                    st.success("Parada registrada.")
 
             if col3.button("Finalizar", key=f"fim_{nome_projetista}"):
                 df.loc[df["Descrição do item"] == projeto_atual, "Status"] = "feito"
                 salvar_dados(df)
                 registrar_tempo(nome_projetista, projeto_atual, "fim")
                 st.rerun()
+
+        tempos = carregar_tempos()
+        registros_df = pd.DataFrame(tempos)
+        registros_df = registros_df[registros_df["usuario"] == nome_projetista]
+        if not registros_df.empty:
+            registros_df["timestamp"] = pd.to_datetime(registros_df["timestamp"])
+            registros_df.sort_values(by="timestamp", inplace=True)
+            st.subheader("Gráfico de Gantt")
+            fig = px.timeline(
+                registros_df,
+                x_start="timestamp",
+                x_end="timestamp",
+                y="projeto",
+                color="acao",
+                title=f"Atividades - {nome_projetista.capitalize()}"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Nenhum dado de tempo registrado para este projetista.")
 
 with abas[3]:
     st.subheader("Indicadores")
