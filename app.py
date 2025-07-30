@@ -112,8 +112,10 @@ for i, proj in enumerate(projetistas):
             fig.update_yaxes(autorange="reversed")
             fig.update_layout(height=500, bargap=0.2)
             st.plotly_chart(fig, use_container_width=True)
-        except Exception:
+        except Exception as e:
             st.warning("Não foi possível gerar o gráfico de Gantt para este projetista. Verifique os dados de datas.")
+            st.exception(e)
+
 
 
 
