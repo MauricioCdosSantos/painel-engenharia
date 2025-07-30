@@ -30,7 +30,7 @@ DATA_FILE = "dados_engenharia.json"
 COLUMNS = [
     "Prioridade", "Status", "Nº Pedido", "Data Entrega Pedido", "Cliente",
     "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
-    "Em Estoque", "Data Limite ENG", "Tempo Estimado", "Desenhos",
+    "Em Estoque", "Data Limite ENG", "Tempo Projeto", "Tempo Detalhamento", "Desenhos",
     "Projetista Projeto", "Projetista Detalhamento"
 ]
 
@@ -93,8 +93,9 @@ with aba_admin:
             quantidade = st.number_input("Quantidade", min_value=1, step=1)
             em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
             data_limite = st.text_input("Data Limite ENG (dd/mm)")
-            tempo_estimado = st.number_input("Tempo Estimado (dias)", min_value=1, step=1)
+            tempo_projeto = st.number_input("Tempo Projeto (dias)", min_value=1, step=1)
         with col3:
+            tempo_detalhamento = st.number_input("Tempo Detalhamento (dias)", min_value=1, step=1)
             desenhos = st.text_input("Desenhos")
             projetistas = ["Sandro", "Alysson"]
             proj_projeto = st.selectbox("Projetista Projeto", projetistas)
@@ -104,7 +105,7 @@ with aba_admin:
             novo_item = dict(zip(COLUMNS, [
                 prioridade, status, pedido, entrega, cliente, cod_cliente,
                 cod_schumann, descricao, quantidade, em_estoque,
-                data_limite, tempo_estimado, desenhos,
+                data_limite, tempo_projeto, tempo_detalhamento, desenhos,
                 proj_projeto, proj_detalhamento
             ]))
             st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([novo_item])], ignore_index=True)
@@ -140,7 +141,7 @@ for i, proj in enumerate(projetistas):
 
         st.subheader(f"Tabela de Itens - {proj}")
         try:
-            st.dataframe(df_proj[COLUMNS[:-3]], use_container_width=True)  # Exibe sem projetistas
+            st.dataframe(df_proj[COLUMNS[:-2]], use_container_width=True)  # Exibe sem projetistas
         except KeyError as e:
             st.warning("Erro ao carregar colunas. Verifique se todos os nomes estão corretos.")
             st.exception(e)
@@ -156,8 +157,8 @@ for i, proj in enumerate(projetistas):
                         return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
                 gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-                gantt_df["Tempo"] = gantt_df["Tempo Estimado"].fillna(0).astype(int)
-                gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=int(x)))
+                gantt_df["Tempo"] = gantt_df.apply(lambda row: int(row["Tempo Projeto"]) if row["Projetista Projeto"] == proj else int(row["Tempo Detalhamento"]), axis=1)
+                gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=x))
                 gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
                 gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
@@ -178,3 +179,4 @@ for i, proj in enumerate(projetistas):
                 st.exception(e)
         else:
             st.info("Nenhum dado disponível para este projetista.")
+
