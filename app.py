@@ -159,6 +159,20 @@ for i, proj in enumerate(projetistas):
         else:
             df_proj = pd.DataFrame(columns=COLUMNS)
 
+        st.subheader(f"Projeto Atual - {proj}")
+        projetos_disponiveis = df_proj["Descrição do item"].dropna().unique().tolist()
+        projeto_selecionado = st.selectbox("Selecione o projeto que está sendo executado", options=projetos_disponiveis, key=f"projeto_{proj}")
+        if projeto_selecionado:
+            if st.button(f"Iniciar projeto - {projeto_selecionado}", key=f"iniciar_{proj}"):
+                st.session_state[f"inicio_{proj}"] = datetime.now()
+            if f"inicio_{proj}" in st.session_state:
+                st.write(f"Iniciado em: {st.session_state[f'inicio_{proj}'].strftime('%d/%m %H:%M')}")
+                if st.button(f"Finalizar projeto - {projeto_selecionado}", key=f"finalizar_{proj}"):
+                    fim = datetime.now()
+                    tempo_total = fim - st.session_state[f"inicio_{proj}"]
+                    st.success(f"Tempo total no projeto: {tempo_total}")
+                    del st.session_state[f"inicio_{proj}"]
+
         st.subheader(f"Tabela de Itens - {proj}")
         try:
             st.dataframe(df_proj[COLUMNS[:-2]], use_container_width=True)
@@ -199,3 +213,4 @@ for i, proj in enumerate(projetistas):
                 st.exception(e)
         else:
             st.info("Nenhum dado disponível para este projetista.")
+
