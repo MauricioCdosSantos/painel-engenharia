@@ -78,7 +78,11 @@ for i, proj in enumerate(projetistas):
         df_proj = df_filtrado[(df_filtrado["Projetista Projeto"] == proj) | (df_filtrado["Projetista Detalhamento"] == proj)]
 
         st.subheader(f"Tabela de Itens - {proj}")
-        st.dataframe(df_proj, use_container_width=True)
+        st.dataframe(df_proj[[
+            "Prioridade", "Status", "Nº Pedido", "Data Entrega Pedido", "Cliente",
+            "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
+            "Em Estoque", "Data Limite ENG", "Tempo Estimado", "Desenhos"
+        ]], use_container_width=True)
 
         st.subheader(f"Gráfico de Gantt - {proj}")
         gantt_df = df_proj[df_proj["Data Limite ENG"].notna() & (df_proj["Data Limite ENG"] != "")].copy()
