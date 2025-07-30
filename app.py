@@ -70,118 +70,50 @@ if filtro_status:
 if filtro_estoque != "Todos":
     df_filtrado = df_filtrado[df_filtrado["Em Estoque"] == filtro_estoque]
 
-# ---------- Adição de novo item ----------
-st.sidebar.header("Adicionar Novo Item")
-with st.sidebar.form("novo_item"):
-    cliente = st.text_input("Cliente")
-    pre_entrega = st.text_input("Pré-entrega (dd/mm)")
-    cod_schumann = st.text_input("Código Schumann")
-    descricao = st.text_area("Descrição")
-    data_limite = st.text_input("Data Limite ENG (dd/mm/yyyy)")
-    tempo_projeto = st.number_input("Tempo Projeto (dias)", min_value=1, step=1)
-    tempo_detalhamento = st.number_input("Tempo Detalhamento (dias)", min_value=1, step=1)
-    prioridade = st.selectbox("Prioridade", ["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"])
-    status = st.selectbox("Status", ["esperando", "fazendo", "concluído"])
-    em_estoque = st.selectbox("Em Estoque", ["Sim", "Não"])
-    proj_projeto = st.selectbox("Projetista Projeto", ["Sandro", "Alysson"])
-    proj_detalhamento = st.selectbox("Projetista Detalhamento", ["Sandro", "Alysson"])
-    engenharia = st.selectbox("Responsável Engenharia", ["Sandro", "Alysson"])
-    comercial = st.text_input("Responsável Comercial")
-    observacoes = st.text_area("Observações")
-    submit = st.form_submit_button("Adicionar")
+# ---------- Abas por Projetista ----------
+projetistas = ["Sandro", "Alysson"]
+abas = st.tabs([f"Projetista: {p}" for p in projetistas])
 
-    if submit:
-        for proj, tempo, etapa in [
-            (proj_projeto, tempo_projeto, "Projeto"),
-            (proj_detalhamento, tempo_detalhamento, "Detalhamento")
-        ]:
-            nova_linha = {
-                "Cliente": cliente,
-                "Pré-entrega": pre_entrega,
-                "Código Schumann": cod_schumann,
-                "Descrição": f"{descricao} - {etapa}",
-                "Data Limite ENG": data_limite,
-                "Prioridade": prioridade,
-                "Status": status,
-                "Em Estoque": em_estoque,
-                "Projetista Projeto": proj_projeto,
-                "Projetista Detalhamento": proj_detalhamento,
-                "Tempo Projeto": tempo_projeto,
-                "Tempo Detalhamento": tempo_detalhamento,
-                "Engenharia": proj,
-                "Comercial": comercial,
-                "Observações": observacoes
-            }
-            st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([nova_linha])], ignore_index=True)
-        salvar_dados(st.session_state.df)
-        st.success("Item adicionado com sucesso.")
+for i, proj in enumerate(projetistas):
+    with abas[i]:
+        df_proj = df_filtrado[df_filtrado["Engenharia"] == proj]
 
-# ---------- Edição dos dados ----------
-st.subheader("Editar Tabela de Itens")
-if len(df_filtrado) > 0:
-    linha_excluir = st.selectbox("Selecione a linha para excluir:", df_filtrado.index)
-    if st.button("Excluir linha selecionada"):
-        st.session_state.df = st.session_state.df.drop(linha_excluir).reset_index(drop=True)
-        salvar_dados(st.session_state.df)
-        st.success("Linha excluída com sucesso!")
+        st.subheader(f"Tabela de Itens - {proj}")
+        st.dataframe(df_proj, use_container_width=True)
 
-edited_df = st.data_editor(
-    df_filtrado,
-    num_rows="dynamic",
-    use_container_width=True,
-    key="editavel",
-    column_config={
-        "Prioridade": st.column_config.SelectboxColumn("Prioridade", options=["URGENTE", "0.1-Prioridade 2", "0.2-Prioridade 1", "2.0-Prioridade 2"]),
-        "Status": st.column_config.SelectboxColumn("Status", options=["esperando", "fazendo", "concluído"]),
-        "Em Estoque": st.column_config.SelectboxColumn("Em Estoque", options=["Sim", "Não"]),
-        "Engenharia": st.column_config.SelectboxColumn("Engenharia", options=["Sandro", "Alysson"])
-    }
-)
+        st.subheader(f"Gráfico de Gantt - {proj}")
+        gantt_df = df_proj[df_proj["Data Limite ENG"].notna() & (df_proj["Data Limite ENG"] != "")].copy()
 
-if st.button("Salvar alterações"):
-    st.session_state.df = edited_df
-    salvar_dados(edited_df)
-    st.success("Alterações salvas com sucesso!")
-
-# ---------- Gantt ----------
-st.subheader("Gráfico de Gantt - Prazo Engenharia")
-gantt_df = df_filtrado.copy()
-gantt_df = gantt_df[gantt_df["Data Limite ENG"].notna() & (gantt_df["Data Limite ENG"] != "")]
-
-try:
-    def parse_data_limite(date_str):
         try:
-            return pd.to_datetime(date_str, format="%d/%m/%Y")
-        except:
-            return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
+            def parse_data_limite(date_str):
+                try:
+                    return pd.to_datetime(date_str, format="%d/%m/%Y")
+                except:
+                    return pd.to_datetime(date_str + f"/{datetime.today().year}", format="%d/%m/%Y")
 
-    gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
-    gantt_df["Tempo"] = gantt_df.apply(
-        lambda row: row["Tempo Projeto"] if "Projeto" in row["Descrição"] else row["Tempo Detalhamento"], axis=1
-    )
-    gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=int(x)))
-    gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
-    gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
+            gantt_df["Finish"] = gantt_df["Data Limite ENG"].apply(parse_data_limite)
+            gantt_df["Tempo"] = gantt_df.apply(
+                lambda row: row["Tempo Projeto"] if "Projeto" in row["Descrição"] else row["Tempo Detalhamento"], axis=1
+            )
+            gantt_df["Start"] = gantt_df["Finish"] - gantt_df["Tempo"].apply(lambda x: timedelta(days=int(x)))
+            gantt_df["Atrasado"] = gantt_df["Finish"] < datetime.now()
+            gantt_df["Cor"] = gantt_df.apply(lambda row: "Atrasado" if row["Atrasado"] else row["Prioridade"], axis=1)
 
-    fig = px.timeline(
-        gantt_df,
-        x_start="Start",
-        x_end="Finish",
-        y="Descrição",
-        color="Cor",
-        title="Prazos por Prioridade",
-        labels={"Descrição": "Item", "Start": "Início", "Finish": "Prazo"}
-    )
-    fig.update_yaxes(autorange="reversed")
-    fig.update_layout(
-        height=500,
-        xaxis_title="Data",
-        yaxis_title="Descrição",
-        bargap=0.2
-    )
-    st.plotly_chart(fig, use_container_width=True)
-except Exception as e:
-    st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+            fig = px.timeline(
+                gantt_df,
+                x_start="Start",
+                x_end="Finish",
+                y="Descrição",
+                color="Cor",
+                title=f"Prazos por Prioridade - {proj}",
+                labels={"Descrição": "Item", "Start": "Início", "Finish": "Prazo"}
+            )
+            fig.update_yaxes(autorange="reversed")
+            fig.update_layout(height=500, bargap=0.2)
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception:
+            st.warning("Não foi possível gerar o gráfico de Gantt para este projetista. Verifique os dados de datas.")
+
 
 
 
