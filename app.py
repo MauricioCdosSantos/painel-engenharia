@@ -41,6 +41,7 @@ def salvar_dados(df):
 
 # ---------- Layout ----------
 st.title("Painel de Engenharia - Gestão de Projetos (Editável)")
+st.caption(f"Usuário logado: {st.session_state.usuario}")
 
 # Carregar dados
 st.session_state.df = carregar_dados() if "df" not in st.session_state else st.session_state.df
@@ -130,3 +131,4 @@ try:
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
     st.warning("Não foi possível gerar o gráfico de Gantt. Verifique os dados de datas.")
+
