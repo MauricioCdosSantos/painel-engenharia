@@ -152,6 +152,19 @@ with tabs[0]:
 for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
     with tabs[i]:
         st.subheader(f"Projetista: {nome_projetista.capitalize()}")
+
+        st.markdown("**Controles do Projeto**")
+        projeto_selecionado = st.selectbox("Selecionar projeto", df[df["Projetista Projeto"] == nome_projetista]["Descrição do item"].unique(), key=f"projeto_{nome_projetista}")
+        motivo_parada = st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
+        col1, col2, col3 = st.columns(3)
+        if col1.button("Iniciar", key=f"iniciar_{nome_projetista}"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "início")
+        if col2.button("Parar", key=f"parar_{nome_projetista}"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "parada", motivo_parada)
+        if col3.button("Finalizar", key=f"finalizar_{nome_projetista}"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "fim")
+
+        st.divider()
         filtrado = df[(df["Projetista Projeto"] == nome_projetista) | (df["Projetista Detalhamento"] == nome_projetista)]
         st.dataframe(filtrado, use_container_width=True)
 
@@ -176,18 +189,6 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Nenhum projeto com tempo estimado para exibir o Gantt.")
-
-        st.divider()
-        projeto_selecionado = st.selectbox("Selecionar projeto", filtrado["Descrição do item"].unique())
-        motivo_parada = st.text_input("Motivo da parada")
-
-        col1, col2, col3 = st.columns(3)
-        if col1.button("Iniciar"):
-            registrar_tempo(st.session_state.usuario, projeto_selecionado, "início")
-        if col2.button("Parar"):
-            registrar_tempo(st.session_state.usuario, projeto_selecionado, "parada", motivo_parada)
-        if col3.button("Finalizar"):
-            registrar_tempo(st.session_state.usuario, projeto_selecionado, "fim")
 
 with tabs[3]:
     st.subheader("Indicadores")
