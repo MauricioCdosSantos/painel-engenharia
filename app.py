@@ -185,27 +185,24 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
 
         tempos = carregar_tempos()
         registros_df = pd.DataFrame(tempos)
-        if "usuario" in registros_df.columns:
+        if not registros_df.empty and "usuario" in registros_df.columns:
             registros_df = registros_df[registros_df["usuario"] == nome_projetista]
+            registros_df["timestamp"] = pd.to_datetime(registros_df["timestamp"])
+            registros_df.sort_values(by="timestamp", inplace=True)
 
-            if not registros_df.empty:
-                registros_df["timestamp"] = pd.to_datetime(registros_df["timestamp"])
-                registros_df.sort_values(by="timestamp", inplace=True)
-                st.subheader("Gráfico de Gantt")
-                fig = px.timeline(
-                    registros_df,
-                    x_start="timestamp",
-                    x_end="timestamp",
-                    y="projeto",
-                    color="acao",
-                    title=f"Atividades - {nome_projetista.capitalize()}"
-                )
-                fig.update_yaxes(categoryorder='total ascending')
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Nenhum dado de tempo registrado para este projetista.")
+            st.subheader("Gráfico de Gantt")
+            fig = px.timeline(
+                registros_df,
+                x_start="timestamp",
+                x_end="timestamp",
+                y="projeto",
+                color="acao",
+                title=f"Atividades - {nome_projetista.capitalize()}"
+            )
+            fig.update_yaxes(categoryorder='total ascending')
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.warning("Estrutura de dados de tempo incorreta ou vazia.")
+            st.info("Nenhum dado de tempo registrado para este projetista.")
 
 with tabs[3]:
     st.subheader("Indicadores")
@@ -226,3 +223,4 @@ with tabs[3]:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Nenhum dado de tempo registrado.")
+
