@@ -177,6 +177,18 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         else:
             st.info("Nenhum projeto com tempo estimado para exibir o Gantt.")
 
+        st.divider()
+        projeto_selecionado = st.selectbox("Selecionar projeto", filtrado["Descrição do item"].unique())
+        motivo_parada = st.text_input("Motivo da parada")
+
+        col1, col2, col3 = st.columns(3)
+        if col1.button("Iniciar"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "início")
+        if col2.button("Parar"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "parada", motivo_parada)
+        if col3.button("Finalizar"):
+            registrar_tempo(st.session_state.usuario, projeto_selecionado, "fim")
+
 with tabs[3]:
     st.subheader("Indicadores")
     tempos = carregar_tempos()
