@@ -37,7 +37,7 @@ if not st.session_state.autenticado:
 DATA_FILE = "dados_engenharia.json"
 TEMPOS_FILE = "tempos_execucao.json"
 COLUMNS = [
-    "Prioridade", "Status", "Nº Pedido", "Data Entrega Pedido", "Cliente",
+    "Prioridade", "Status Projeto", "Status Detalhamento", "Nº Pedido", "Data Entrega Pedido", "Cliente",
     "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
     "Em Estoque", "Data Limite ENG", "Tempo Projeto", "Tempo Detalhamento", "Desenhos",
     "Projetista Projeto", "Projetista Detalhamento"
@@ -81,6 +81,9 @@ def carregar_tempos():
             return json.load(f)
     return []
 
+def to_hours(valor, unidade):
+    return valor / 60 if unidade == "min" else valor * 24 if unidade == "dia" else valor
+
 df = carregar_dados()
 st.title("Painel de Engenharia")
 tabs = st.tabs(["Administração", "Projetista: Sandro", "Projetista: Alysson", "Indicadores"])
@@ -91,7 +94,6 @@ with tabs[0]:
         col1, col2, col3 = st.columns(3)
         with col1:
             prioridade = st.selectbox("Prioridade", ["Alta", "Média", "Baixa"])
-            status = st.selectbox("Status", ["esperando", "fazendo", "feito"])
             pedido = st.text_input("Nº Pedido")
             entrega = st.text_input("Data Entrega Pedido (dd/mm)")
             cliente = st.text_input("Cliente")
@@ -111,13 +113,11 @@ with tabs[0]:
             proj_projeto = st.selectbox("Projetista Projeto", ["sandro", "alysson"])
             proj_detalhamento = st.selectbox("Projetista Detalhamento", ["sandro", "alysson"])
 
-        def to_hours(valor, unidade):
-            return valor / 60 if unidade == "min" else valor * 24 if unidade == "dia" else valor
-
         if st.form_submit_button("Adicionar"):
             novo = {
                 "Prioridade": prioridade,
-                "Status": status,
+                "Status Projeto": "esperando",
+                "Status Detalhamento": "esperando",
                 "Nº Pedido": pedido,
                 "Data Entrega Pedido": entrega,
                 "Cliente": cliente,
@@ -165,7 +165,8 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
             registrar_tempo(st.session_state.usuario, projeto_selecionado, "fim")
 
         st.divider()
-        filtrado = df[(df["Projetista Projeto"] == nome_projetista) | (df["Projetista Detalhamento"] == nome_projetista)]
+        filtrado = df[((df["Projetista Projeto"] == nome_projetista) | (df["Projetista Detalhamento"] == nome_projetista)) & ~(df["Status Projeto"] == "feito")]
+        filtrado = filtrado.sort_values(by=["Data Limite ENG", "Prioridade"], ascending=[True, True])
         st.dataframe(filtrado, use_container_width=True)
 
         gantt_df = pd.DataFrame()
@@ -175,7 +176,7 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
             else:
                 tempo = row["Tempo Detalhamento"]
             if pd.notna(tempo) and tempo > 0:
-                inicio = datetime.now()
+                inicio = datetime.now().replace(hour=7, minute=10, second=0, microsecond=0)
                 fim = inicio + timedelta(hours=tempo)
                 gantt_df = pd.concat([gantt_df, pd.DataFrame([{
                     "Tarefa": row["Descrição do item"],
