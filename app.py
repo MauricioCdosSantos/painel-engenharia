@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
 
 st.set_page_config(page_title="Painel de Engenharia", layout="wide")
@@ -155,54 +155,27 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         filtrado = df[(df["Projetista Projeto"] == nome_projetista) | (df["Projetista Detalhamento"] == nome_projetista)]
         st.dataframe(filtrado, use_container_width=True)
 
-        projetos_disponiveis = filtrado[filtrado["Status"] != "feito"]["Descrição do item"].dropna().unique().tolist()
-        projeto_atual = st.selectbox("Selecionar projeto", [""] + projetos_disponiveis, key=f"proj_{nome_projetista}")
+        gantt_df = pd.DataFrame()
+        for _, row in filtrado.iterrows():
+            if row["Projetista Projeto"] == nome_projetista:
+                tempo = row["Tempo Projeto"]
+            else:
+                tempo = row["Tempo Detalhamento"]
+            if pd.notna(tempo) and tempo > 0:
+                inicio = datetime.now()
+                fim = inicio + timedelta(hours=tempo)
+                gantt_df = pd.concat([gantt_df, pd.DataFrame([{
+                    "Tarefa": row["Descrição do item"],
+                    "Início": inicio,
+                    "Fim": fim
+                }])])
 
-        col_parar, col_motivo = st.columns([1, 3])
-        with col_parar:
-            if st.button("Parar", key=f"stop_{nome_projetista}"):
-                motivo = st.session_state.get(f"motivo_{nome_projetista}", "")
-                if projeto_atual and motivo:
-                    registrar_tempo(nome_projetista, projeto_atual, "parada", motivo)
-                    st.success("Parada registrada.")
-
-        with col_motivo:
-            st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
-
-        col1, col2 = st.columns([1, 1])
-        if projeto_atual:
-            if col1.button("Iniciar", key=f"ini_{nome_projetista}"):
-                df.loc[df["Descrição do item"] == projeto_atual, "Status"] = "fazendo"
-                salvar_dados(df)
-                registrar_tempo(nome_projetista, projeto_atual, "inicio")
-                st.rerun()
-
-            if col2.button("Finalizar", key=f"fim_{nome_projetista}"):
-                df.loc[df["Descrição do item"] == projeto_atual, "Status"] = "feito"
-                salvar_dados(df)
-                registrar_tempo(nome_projetista, projeto_atual, "fim")
-                st.rerun()
-
-        tempos = carregar_tempos()
-        registros_df = pd.DataFrame(tempos)
-        if not registros_df.empty and "usuario" in registros_df.columns:
-            registros_df = registros_df[registros_df["usuario"] == nome_projetista]
-            registros_df["timestamp"] = pd.to_datetime(registros_df["timestamp"])
-            registros_df.sort_values(by="timestamp", inplace=True)
-
-            st.subheader("Gráfico de Gantt")
-            fig = px.timeline(
-                registros_df,
-                x_start="timestamp",
-                x_end="timestamp",
-                y="projeto",
-                color="acao",
-                title=f"Atividades - {nome_projetista.capitalize()}"
-            )
+        if not gantt_df.empty:
+            fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome_projetista.capitalize()}")
             fig.update_yaxes(categoryorder='total ascending')
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Nenhum dado de tempo registrado para este projetista.")
+            st.info("Nenhum projeto com tempo estimado para exibir o Gantt.")
 
 with tabs[3]:
     st.subheader("Indicadores")
@@ -223,4 +196,3 @@ with tabs[3]:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Nenhum dado de tempo registrado.")
-
