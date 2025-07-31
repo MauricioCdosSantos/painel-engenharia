@@ -158,10 +158,16 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         motivo_parada = st.text_input("Motivo da parada", key=f"motivo_{nome_projetista}")
         col1, col2, col3 = st.columns(3)
         if col1.button("Iniciar", key=f"iniciar_{nome_projetista}"):
+            df.loc[df["Descrição do item"] == projeto_selecionado, "Status Projeto"] = "em processo"
+            salvar_dados(df)
             registrar_tempo(st.session_state.usuario, projeto_selecionado, "início")
         if col2.button("Parar", key=f"parar_{nome_projetista}"):
+            df.loc[df["Descrição do item"] == projeto_selecionado, "Status Projeto"] = "parado"
+            salvar_dados(df)
             registrar_tempo(st.session_state.usuario, projeto_selecionado, "parada", motivo_parada)
         if col3.button("Finalizar", key=f"finalizar_{nome_projetista}"):
+            df.loc[df["Descrição do item"] == projeto_selecionado, "Status Projeto"] = "feito"
+            salvar_dados(df)
             registrar_tempo(st.session_state.usuario, projeto_selecionado, "fim")
 
         st.divider()
@@ -170,19 +176,17 @@ for i, nome_projetista in enumerate(["sandro", "alysson"], start=1):
         st.dataframe(filtrado, use_container_width=True)
 
         gantt_df = pd.DataFrame()
+        inicio = datetime.now().replace(hour=7, minute=10, second=0, microsecond=0)
         for _, row in filtrado.iterrows():
-            if row["Projetista Projeto"] == nome_projetista:
-                tempo = row["Tempo Projeto"]
-            else:
-                tempo = row["Tempo Detalhamento"]
+            tempo = row["Tempo Projeto"] if row["Projetista Projeto"] == nome_projetista else row["Tempo Detalhamento"]
             if pd.notna(tempo) and tempo > 0:
-                inicio = datetime.now().replace(hour=7, minute=10, second=0, microsecond=0)
                 fim = inicio + timedelta(hours=tempo)
                 gantt_df = pd.concat([gantt_df, pd.DataFrame([{
                     "Tarefa": row["Descrição do item"],
                     "Início": inicio,
                     "Fim": fim
                 }])])
+                inicio = fim
 
         if not gantt_df.empty:
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome_projetista.capitalize()}")
