@@ -151,4 +151,10 @@ with tabs[0]:
         st.success("Alterações salvas com sucesso.")
         st.rerun()
 
-# Demais abas permanecem inalteradas...
+with tabs[1]:
+    st.header("Projetista: Sandro")
+    st.dataframe(df[df["Projetista Projeto"] == "sandro"], use_container_width=True)
+
+with tabs[2]:
+    st.header("Projetista: Alysson")
+    st.dataframe(df[df["Projetista Projeto"] == "alysson"], use_container_width=True)
