@@ -43,7 +43,6 @@ COLUMNS = [
     "Projetista Projeto", "Projetista Detalhamento"
 ]
 
-
 def carregar_dados():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -55,16 +54,15 @@ def carregar_dados():
             return df[COLUMNS]
     return pd.DataFrame(columns=COLUMNS)
 
-
 def salvar_dados(df):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(df.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
 
-
-def registrar_tempo(usuario, projeto, acao, motivo=None):
+def registrar_tempo(usuario, projeto, tipo, acao, motivo=None):
     entrada = {
         "usuario": usuario,
         "projeto": projeto,
+        "tipo": tipo,
         "acao": acao,
         "motivo": motivo,
         "timestamp": datetime.now().isoformat()
@@ -78,18 +76,17 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
     with open(TEMPOS_FILE, "w", encoding="utf-8") as f:
         json.dump(registros, f, indent=4, ensure_ascii=False)
 
-    # Atualiza status no dataframe
     df = carregar_dados()
     idxs = df[df["Descrição do item"] == projeto].index
     for idx in idxs:
+        col_status = "Status Projeto" if tipo == "Projeto" else "Status Detalhamento"
         if acao == "inicio":
-            df.at[idx, "Status Projeto"] = "em processo"
+            df.at[idx, col_status] = "em processo"
         elif acao == "parada":
-            df.at[idx, "Status Projeto"] = "em pausa"
+            df.at[idx, col_status] = "em pausa"
         elif acao == "fim":
-            df.at[idx, "Status Projeto"] = "concluído"
+            df.at[idx, col_status] = "concluído"
     salvar_dados(df)
-
 
 def carregar_tempos():
     if os.path.exists(TEMPOS_FILE):
@@ -97,10 +94,8 @@ def carregar_tempos():
             return json.load(f)
     return []
 
-
 def to_hours(valor, unidade):
     return valor / 60 if unidade == "min" else valor * 24 if unidade == "dia" else valor
-
 
 df = carregar_dados()
 st.title("Painel de Engenharia")
@@ -172,34 +167,48 @@ with tabs[0]:
 for i, nome in enumerate(["sandro", "alysson"], start=1):
     with tabs[i]:
         st.header(f"Projetista: {nome.capitalize()}")
-        df_user = df[df["Projetista Projeto"] == nome]
+        df_proj = df[df["Projetista Projeto"] == nome].copy()
+        df_det = df[df["Projetista Detalhamento"] == nome].copy()
+
+        df_proj["Tipo"] = "Projeto"
+        df_det["Tipo"] = "Detalhamento"
+
+        df_proj["Status"] = df_proj["Status Projeto"]
+        df_det["Status"] = df_det["Status Detalhamento"]
+
+        df_user = pd.concat([df_proj, df_det], ignore_index=True)
         st.dataframe(df_user, use_container_width=True)
 
         st.subheader("Ações")
         projeto_sel = st.selectbox("Selecionar projeto", df_user["Descrição do item"].unique(), key=f"projeto_{nome}")
+        tipo_sel = st.radio("Tipo de atividade", ["Projeto", "Detalhamento"], key=f"tipo_{nome}")
+
         if st.button("Iniciar", key=f"iniciar_{nome}"):
-            registrar_tempo(nome, projeto_sel, "inicio")
+            registrar_tempo(nome, projeto_sel, tipo_sel, "inicio")
             st.rerun()
+
         motivo = st.text_input("Motivo da parada", key=f"motivo_{nome}")
         if st.button("Parar", key=f"parar_{nome}"):
-            registrar_tempo(nome, projeto_sel, "parada", motivo)
+            registrar_tempo(nome, projeto_sel, tipo_sel, "parada", motivo)
             st.rerun()
+
         if st.button("Finalizar", key=f"fim_{nome}"):
-            registrar_tempo(nome, projeto_sel, "fim")
+            registrar_tempo(nome, projeto_sel, tipo_sel, "fim")
             st.rerun()
 
         st.subheader(f"Gráfico de Gantt - {nome.capitalize()}")
-        df_gantt = df_user[df_user["Status Projeto"] != "concluído"]
-        df_gantt = df_gantt.sort_values(by=["Data Limite ENG", "Prioridade"])
+        df_user_gantt = df_user[df_user["Status"] != "concluído"]
+        df_user_gantt = df_user_gantt.sort_values(by=["Data Limite ENG", "Prioridade"])
         base_time = datetime.now().replace(hour=7, minute=10, second=0, microsecond=0)
         gantt_data = []
-        for _, row in df_gantt.iterrows():
-            duracao = row["Tempo Projeto"]
+        for _, row in df_user_gantt.iterrows():
+            duracao = row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"]
             if duracao and duracao > 0:
                 start_time = base_time
                 end_time = base_time + timedelta(hours=duracao)
                 base_time = end_time + timedelta(minutes=5)
-                gantt_data.append({"Tarefa": row["Descrição do item"], "Início": start_time, "Fim": end_time})
+                label = f"{row['Descrição do item']} ({row['Tipo']})"
+                gantt_data.append({"Tarefa": label, "Início": start_time, "Fim": end_time})
         if gantt_data:
             gantt_df = pd.DataFrame(gantt_data)
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome.capitalize()}")
