@@ -196,7 +196,6 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
             registrar_tempo(nome, projeto_sel, tipo_sel, "fim")
             st.rerun()
 
-        st.subheader(f"Gráfico de Gantt - {nome.capitalize()}")
         df_user_gantt = df_user[df_user["Status"] != "concluído"]
         df_user_gantt = df_user_gantt.sort_values(by=["Data Limite ENG", "Prioridade"])
 
@@ -227,10 +226,10 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         if gantt_data:
             gantt_df = pd.DataFrame(gantt_data)
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome.capitalize()}")
+            st.subheader(f"Gráfico de Gantt - {nome.capitalize()}")
             st.plotly_chart(fig, use_container_width=True)
 
 with tabs[3]:
     st.header("Indicadores")
     registros = carregar_tempos()
     st.write(registros)
-
