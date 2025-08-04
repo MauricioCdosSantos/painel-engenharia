@@ -175,7 +175,7 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_det["Status"] = df_det["Status Detalhamento"]
 
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
-        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento"])
+        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento", "Quantidade"] if "Quantidade" in df_user.columns else ["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento"])
         st.dataframe(df_user_display, use_container_width=True)
 
         st.subheader("Ações")
