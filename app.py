@@ -43,6 +43,7 @@ COLUMNS = [
     "Projetista Projeto", "Projetista Detalhamento"
 ]
 
+
 def carregar_dados():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -54,9 +55,11 @@ def carregar_dados():
             return df[COLUMNS]
     return pd.DataFrame(columns=COLUMNS)
 
+
 def salvar_dados(df):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(df.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
+
 
 def registrar_tempo(usuario, projeto, acao, motivo=None):
     entrada = {
@@ -75,14 +78,17 @@ def registrar_tempo(usuario, projeto, acao, motivo=None):
     with open(TEMPOS_FILE, "w", encoding="utf-8") as f:
         json.dump(registros, f, indent=4, ensure_ascii=False)
 
+
 def carregar_tempos():
     if os.path.exists(TEMPOS_FILE):
         with open(TEMPOS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
+
 def to_hours(valor, unidade):
     return valor / 60 if unidade == "min" else valor * 24 if unidade == "dia" else valor
+
 
 df = carregar_dados()
 st.title("Painel de Engenharia")
@@ -153,8 +159,67 @@ with tabs[0]:
 
 with tabs[1]:
     st.header("Projetista: Sandro")
-    st.dataframe(df[df["Projetista Projeto"] == "sandro"], use_container_width=True)
+    df_sandro = df[df["Projetista Projeto"] == "sandro"]
+    st.dataframe(df_sandro, use_container_width=True)
+
+    st.subheader("Ações")
+    projeto_sel = st.selectbox("Selecionar projeto", df_sandro["Descrição do item"].unique())
+    if st.button("Iniciar"):
+        registrar_tempo("sandro", projeto_sel, "inicio")
+    motivo = st.text_input("Motivo da parada")
+    if st.button("Parar"):
+        registrar_tempo("sandro", projeto_sel, "parada", motivo)
+    if st.button("Finalizar"):
+        registrar_tempo("sandro", projeto_sel, "fim")
+
+    st.subheader("Gráfico de Gantt - Sandro")
+    df_sandro_gantt = df_sandro.sort_values(by=["Data Limite ENG", "Prioridade"])
+    base_time = datetime.now()
+    gantt_data = []
+    for _, row in df_sandro_gantt.iterrows():
+        duracao = row["Tempo Projeto"]
+        if duracao and duracao > 0:
+            start_time = base_time
+            end_time = base_time + timedelta(hours=duracao)
+            base_time = end_time + timedelta(minutes=5)
+            gantt_data.append({"Tarefa": row["Descrição do item"], "Início": start_time, "Fim": end_time})
+    if gantt_data:
+        gantt_df = pd.DataFrame(gantt_data)
+        fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title="Gráfico de Gantt - Sandro")
+        st.plotly_chart(fig, use_container_width=True)
 
 with tabs[2]:
     st.header("Projetista: Alysson")
-    st.dataframe(df[df["Projetista Projeto"] == "alysson"], use_container_width=True)
+    df_alysson = df[df["Projetista Projeto"] == "alysson"]
+    st.dataframe(df_alysson, use_container_width=True)
+
+    st.subheader("Ações")
+    projeto_sel = st.selectbox("Selecionar projeto", df_alysson["Descrição do item"].unique())
+    if st.button("Iniciar", key="ini_a"):
+        registrar_tempo("alysson", projeto_sel, "inicio")
+    motivo = st.text_input("Motivo da parada", key="motivo_a")
+    if st.button("Parar", key="parar_a"):
+        registrar_tempo("alysson", projeto_sel, "parada", motivo)
+    if st.button("Finalizar", key="fim_a"):
+        registrar_tempo("alysson", projeto_sel, "fim")
+
+    st.subheader("Gráfico de Gantt - Alysson")
+    df_alysson_gantt = df_alysson.sort_values(by=["Data Limite ENG", "Prioridade"])
+    base_time = datetime.now()
+    gantt_data = []
+    for _, row in df_alysson_gantt.iterrows():
+        duracao = row["Tempo Projeto"]
+        if duracao and duracao > 0:
+            start_time = base_time
+            end_time = base_time + timedelta(hours=duracao)
+            base_time = end_time + timedelta(minutes=5)
+            gantt_data.append({"Tarefa": row["Descrição do item"], "Início": start_time, "Fim": end_time})
+    if gantt_data:
+        gantt_df = pd.DataFrame(gantt_data)
+        fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title="Gráfico de Gantt - Alysson")
+        st.plotly_chart(fig, use_container_width=True)
+
+with tabs[3]:
+    st.header("Indicadores")
+    registros = carregar_tempos()
+    st.write(registros)
