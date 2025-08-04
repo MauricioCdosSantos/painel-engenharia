@@ -168,19 +168,25 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_proj = df[df["Projetista Projeto"] == nome].copy()
         df_det = df[df["Projetista Detalhamento"] == nome].copy()
 
+        df_proj = df_proj.rename(columns={
+            "Status Projeto": "Status",
+            "Tempo Projeto": "Tempo"
+        })
+        df_det = df_det.rename(columns={
+            "Status Detalhamento": "Status",
+            "Tempo Detalhamento": "Tempo"
+        })
+
         df_proj["Tipo"] = "Projeto"
         df_det["Tipo"] = "Detalhamento"
 
-        df_proj["Status"] = df_proj["Status Projeto"]
-        df_det["Status"] = df_det["Status Detalhamento"]
-
-        df_proj["Tempo"] = df_proj["Tempo Projeto"]
-        df_det["Tempo"] = df_det["Tempo Detalhamento"]
+        df_proj["Projetista"] = nome
+        df_det["Projetista"] = nome
 
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
 
         colunas_mostrar = ["Prioridade", "Nº Pedido", "Cliente", "Cód. Cliente", "Código Schumann", "Descrição do item",
-                           "Qtd. Estoque", "Data Limite ENG", "Tempo", "Desenhos", "Tipo", "Status"]
+                           "Qtd. Estoque", "Data Limite ENG", "Tempo", "Desenhos", "Tipo", "Status", "Projetista"]
         st.dataframe(df_user[colunas_mostrar], use_container_width=True)
 
         st.subheader("Ações")
@@ -241,3 +247,4 @@ with tabs[3]:
         st.dataframe(df_reg, use_container_width=True)
     else:
         st.info("Nenhum registro disponível.")
+
