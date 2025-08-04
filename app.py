@@ -38,7 +38,7 @@ DATA_FILE = "dados_engenharia.json"
 TEMPOS_FILE = "tempos_execucao.json"
 COLUMNS = [
     "Prioridade", "Status Projeto", "Status Detalhamento", "Nº Pedido", "Cliente",
-    "Cód. Cliente", "Código Schumann", "Descrição do item", "Quantidade",
+    "Cód. Cliente", "Código Schumann", "Descrição do item",
     "Qtd. Estoque", "Data Limite ENG", "Tempo Projeto", "Tempo Detalhamento", "Desenhos",
     "Projetista Projeto", "Projetista Detalhamento"
 ]
@@ -113,7 +113,6 @@ with tabs[0]:
         with col2:
             cod_schumann = st.text_input("Código Schumann")
             descricao = st.text_input("Descrição do item")
-            quantidade = st.number_input("Quantidade", min_value=1, step=1)
             qtd_estoque = st.number_input("Qtd. Estoque", min_value=0, step=1)
             data_limite = st.text_input("Data Limite ENG (dd/mm)")
             tempo_proj_valor = st.number_input("Valor Tempo Projeto", min_value=0, step=1)
@@ -135,7 +134,6 @@ with tabs[0]:
                 "Cód. Cliente": cod_cliente,
                 "Código Schumann": cod_schumann,
                 "Descrição do item": descricao,
-                "Quantidade": quantidade,
                 "Qtd. Estoque": qtd_estoque,
                 "Data Limite ENG": data_limite,
                 "Tempo Projeto": round(to_hours(tempo_proj_valor, tempo_proj_unidade), 2),
@@ -177,7 +175,8 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_det["Status"] = df_det["Status Detalhamento"]
 
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
-        st.dataframe(df_user, use_container_width=True)
+        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Quantidade"])
+        st.dataframe(df_user_display, use_container_width=True)
 
         st.subheader("Ações")
         projeto_sel = st.selectbox("Selecionar projeto", df_user["Descrição do item"].unique(), key=f"projeto_{nome}")
@@ -205,10 +204,20 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
             duracao = row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"]
             if duracao and duracao > 0:
                 start_time = base_time
-                end_time = base_time + timedelta(hours=duracao)
-                base_time = end_time + timedelta(minutes=5)
-                label = f"{row['Descrição do item']} ({row['Tipo']})"
-                gantt_data.append({"Tarefa": label, "Início": start_time, "Fim": end_time})
+                horas_restantes = duracao
+                while horas_restantes > 0:
+                    end_time = start_time + timedelta(hours=horas_restantes)
+                    if start_time.hour < 11 or (start_time.hour == 11 and start_time.minute <= 50):
+                        bloco_fim = min(end_time, start_time.replace(hour=11, minute=50))
+                    else:
+                        start_time = start_time.replace(hour=13, minute=0)
+                        bloco_fim = min(end_time, start_time.replace(hour=16, minute=50))
+                    tarefa_duracao = (bloco_fim - start_time).total_seconds() / 3600
+                    if tarefa_duracao > 0:
+                        label = f"{row['Descrição do item']} ({row['Tipo']})"
+                        gantt_data.append({"Tarefa": label, "Início": start_time, "Fim": bloco_fim})
+                        horas_restantes -= tarefa_duracao
+                    start_time = bloco_fim + timedelta(minutes=5)
         if gantt_data:
             gantt_df = pd.DataFrame(gantt_data)
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome.capitalize()}")
