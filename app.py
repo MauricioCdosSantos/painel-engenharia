@@ -175,7 +175,8 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_det["Status"] = df_det["Status Detalhamento"]
 
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
-        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento"])
+        df_user["Tempo"] = df_user.apply(lambda row: row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"], axis=1)
+        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento", "Tempo Projeto", "Tempo Detalhamento"])
         st.dataframe(df_user_display, use_container_width=True)
 
         st.subheader("Ações")
@@ -204,7 +205,7 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         current_time = base_time
 
         for _, row in df_user_gantt.iterrows():
-            duracao = row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"]
+            duracao = row["Tempo"]
             if duracao and duracao > 0:
                 horas_restantes = duracao
                 while horas_restantes > 0:
