@@ -174,10 +174,14 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_proj["Status"] = df_proj["Status Projeto"]
         df_det["Status"] = df_det["Status Detalhamento"]
 
+        df_proj["Tempo"] = df_proj["Tempo Projeto"]
+        df_det["Tempo"] = df_det["Tempo Detalhamento"]
+
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
-        df_user["Tempo"] = df_user.apply(lambda row: row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"], axis=1)
-        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento", "Tempo Projeto", "Tempo Detalhamento"])
-        st.dataframe(df_user_display, use_container_width=True)
+
+        colunas_mostrar = ["Prioridade", "Nº Pedido", "Cliente", "Cód. Cliente", "Código Schumann", "Descrição do item",
+                           "Qtd. Estoque", "Data Limite ENG", "Tempo", "Desenhos", "Tipo", "Status"]
+        st.dataframe(df_user[colunas_mostrar], use_container_width=True)
 
         st.subheader("Ações")
         projeto_sel = st.selectbox("Selecionar projeto", df_user["Descrição do item"].unique(), key=f"projeto_{nome}")
@@ -226,10 +230,14 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         if gantt_data:
             gantt_df = pd.DataFrame(gantt_data)
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome.capitalize()}")
-            st.subheader(f"Gráfico de Gantt - {nome.capitalize()}")
+            fig.update_layout(yaxis_title="", xaxis_title="")
             st.plotly_chart(fig, use_container_width=True)
 
 with tabs[3]:
     st.header("Indicadores")
     registros = carregar_tempos()
-    st.write(registros)
+    if registros:
+        df_reg = pd.DataFrame(registros)
+        st.dataframe(df_reg, use_container_width=True)
+    else:
+        st.info("Nenhum registro disponível.")
