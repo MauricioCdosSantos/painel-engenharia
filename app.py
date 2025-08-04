@@ -37,11 +37,12 @@ if not st.session_state.autenticado:
 DATA_FILE = "dados_engenharia.json"
 TEMPOS_FILE = "tempos_execucao.json"
 COLUMNS = [
-    "Prioridade", "Status Projeto", "Status Detalhamento", "Nº Pedido", "Cliente",
-    "Cód. Cliente", "Código Schumann", "Descrição do item",
-    "Qtd. Estoque", "Data Limite ENG", "Tempo Projeto", "Tempo Detalhamento", "Desenhos",
-    "Projetista Projeto", "Projetista Detalhamento"
+    "Prioridade", "Nº Pedido", "Cliente", "Cód. Cliente", "Código Schumann", "Descrição do item",
+    "Qtd. Estoque", "Data Limite ENG", "Tempo", "Desenhos", "Tipo", "Status", "Projetista"
 ]
+
+TIPOS = ["Projeto", "Detalhamento"]
+
 
 def carregar_dados():
     if os.path.exists(DATA_FILE):
@@ -54,9 +55,11 @@ def carregar_dados():
             return df[COLUMNS]
     return pd.DataFrame(columns=COLUMNS)
 
+
 def salvar_dados(df):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(df.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
+
 
 def registrar_tempo(usuario, projeto, tipo, acao, motivo=None):
     entrada = {
@@ -77,16 +80,16 @@ def registrar_tempo(usuario, projeto, tipo, acao, motivo=None):
         json.dump(registros, f, indent=4, ensure_ascii=False)
 
     df = carregar_dados()
-    idxs = df[df["Descrição do item"] == projeto].index
+    idxs = df[(df["Descrição do item"] == projeto) & (df["Tipo"] == tipo)].index
     for idx in idxs:
-        col_status = "Status Projeto" if tipo == "Projeto" else "Status Detalhamento"
         if acao == "inicio":
-            df.at[idx, col_status] = "em processo"
+            df.at[idx, "Status"] = "em processo"
         elif acao == "parada":
-            df.at[idx, col_status] = "em pausa"
+            df.at[idx, "Status"] = "em pausa"
         elif acao == "fim":
-            df.at[idx, col_status] = "concluído"
+            df.at[idx, "Status"] = "concluído"
     salvar_dados(df)
+
 
 def carregar_tempos():
     if os.path.exists(TEMPOS_FILE):
@@ -94,8 +97,10 @@ def carregar_tempos():
             return json.load(f)
     return []
 
+
 def to_hours(valor, unidade):
     return valor / 60 if unidade == "min" else valor * 24 if unidade == "dia" else valor
+
 
 df = carregar_dados()
 st.title("Painel de Engenharia")
@@ -125,24 +130,25 @@ with tabs[0]:
             proj_detalhamento = st.selectbox("Projetista Detalhamento", ["sandro", "alysson"])
 
         if st.form_submit_button("Adicionar"):
-            novo = {
-                "Prioridade": prioridade,
-                "Status Projeto": "esperando",
-                "Status Detalhamento": "esperando",
-                "Nº Pedido": pedido,
-                "Cliente": cliente,
-                "Cód. Cliente": cod_cliente,
-                "Código Schumann": cod_schumann,
-                "Descrição do item": descricao,
-                "Qtd. Estoque": qtd_estoque,
-                "Data Limite ENG": data_limite,
-                "Tempo Projeto": round(to_hours(tempo_proj_valor, tempo_proj_unidade), 2),
-                "Tempo Detalhamento": round(to_hours(tempo_det_valor, tempo_det_unidade), 2),
-                "Desenhos": desenhos,
-                "Projetista Projeto": proj_projeto,
-                "Projetista Detalhamento": proj_detalhamento
-            }
-            df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
+            novos = []
+            for tipo, tempo_valor, tempo_unidade, proj in zip(TIPOS, [tempo_proj_valor, tempo_det_valor], [tempo_proj_unidade, tempo_det_unidade], [proj_projeto, proj_detalhamento]):
+                novo = {
+                    "Prioridade": prioridade,
+                    "Nº Pedido": pedido,
+                    "Cliente": cliente,
+                    "Cód. Cliente": cod_cliente,
+                    "Código Schumann": cod_schumann,
+                    "Descrição do item": descricao,
+                    "Qtd. Estoque": qtd_estoque,
+                    "Data Limite ENG": data_limite,
+                    "Tempo": round(to_hours(tempo_valor, tempo_unidade), 2),
+                    "Desenhos": desenhos,
+                    "Tipo": tipo,
+                    "Status": "esperando",
+                    "Projetista": proj
+                }
+                novos.append(novo)
+            df = pd.concat([df, pd.DataFrame(novos)], ignore_index=True)
             salvar_dados(df)
             st.success("Item adicionado com sucesso.")
             st.rerun()
@@ -165,25 +171,7 @@ with tabs[0]:
 for i, nome in enumerate(["sandro", "alysson"], start=1):
     with tabs[i]:
         st.header(f"Projetista: {nome.capitalize()}")
-        df_proj = df[df["Projetista Projeto"] == nome].copy()
-        df_det = df[df["Projetista Detalhamento"] == nome].copy()
-
-        df_proj = df_proj.rename(columns={
-            "Status Projeto": "Status",
-            "Tempo Projeto": "Tempo"
-        })
-        df_det = df_det.rename(columns={
-            "Status Detalhamento": "Status",
-            "Tempo Detalhamento": "Tempo"
-        })
-
-        df_proj["Tipo"] = "Projeto"
-        df_det["Tipo"] = "Detalhamento"
-
-        df_proj["Projetista"] = nome
-        df_det["Projetista"] = nome
-
-        df_user = pd.concat([df_proj, df_det], ignore_index=True)
+        df_user = df[df["Projetista"] == nome].copy()
 
         colunas_mostrar = ["Prioridade", "Nº Pedido", "Cliente", "Cód. Cliente", "Código Schumann", "Descrição do item",
                            "Qtd. Estoque", "Data Limite ENG", "Tempo", "Desenhos", "Tipo", "Status", "Projetista"]
@@ -191,7 +179,7 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
 
         st.subheader("Ações")
         projeto_sel = st.selectbox("Selecionar projeto", df_user["Descrição do item"].unique(), key=f"projeto_{nome}")
-        tipo_sel = st.radio("Tipo de atividade", ["Projeto", "Detalhamento"], key=f"tipo_{nome}")
+        tipo_sel = st.radio("Tipo de atividade", TIPOS, key=f"tipo_{nome}")
 
         if st.button("Iniciar", key=f"iniciar_{nome}"):
             registrar_tempo(nome, projeto_sel, tipo_sel, "inicio")
@@ -247,4 +235,3 @@ with tabs[3]:
         st.dataframe(df_reg, use_container_width=True)
     else:
         st.info("Nenhum registro disponível.")
-
