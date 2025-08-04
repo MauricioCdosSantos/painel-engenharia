@@ -175,7 +175,7 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         df_det["Status"] = df_det["Status Detalhamento"]
 
         df_user = pd.concat([df_proj, df_det], ignore_index=True)
-        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento", "Quantidade"] if "Quantidade" in df_user.columns else ["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento"])
+        df_user_display = df_user.drop(columns=["Status Projeto", "Status Detalhamento", "Projetista Projeto", "Projetista Detalhamento"])
         st.dataframe(df_user_display, use_container_width=True)
 
         st.subheader("Ações")
@@ -198,26 +198,31 @@ for i, nome in enumerate(["sandro", "alysson"], start=1):
         st.subheader(f"Gráfico de Gantt - {nome.capitalize()}")
         df_user_gantt = df_user[df_user["Status"] != "concluído"]
         df_user_gantt = df_user_gantt.sort_values(by=["Data Limite ENG", "Prioridade"])
+
         base_time = datetime.now().replace(hour=7, minute=10, second=0, microsecond=0)
         gantt_data = []
+        current_time = base_time
+
         for _, row in df_user_gantt.iterrows():
             duracao = row["Tempo Projeto"] if row["Tipo"] == "Projeto" else row["Tempo Detalhamento"]
             if duracao and duracao > 0:
-                start_time = base_time
                 horas_restantes = duracao
                 while horas_restantes > 0:
-                    end_time = start_time + timedelta(hours=horas_restantes)
-                    if start_time.hour < 11 or (start_time.hour == 11 and start_time.minute <= 50):
-                        bloco_fim = min(end_time, start_time.replace(hour=11, minute=50))
+                    if current_time.hour < 11 or (current_time.hour == 11 and current_time.minute <= 50):
+                        bloco_fim = min(current_time + timedelta(hours=horas_restantes), current_time.replace(hour=11, minute=50))
+                    elif current_time.hour < 13:
+                        current_time = current_time.replace(hour=13, minute=0)
+                        bloco_fim = min(current_time + timedelta(hours=horas_restantes), current_time.replace(hour=16, minute=50))
                     else:
-                        start_time = start_time.replace(hour=13, minute=0)
-                        bloco_fim = min(end_time, start_time.replace(hour=16, minute=50))
-                    tarefa_duracao = (bloco_fim - start_time).total_seconds() / 3600
+                        bloco_fim = min(current_time + timedelta(hours=horas_restantes), current_time.replace(hour=16, minute=50))
+
+                    tarefa_duracao = (bloco_fim - current_time).total_seconds() / 3600
                     if tarefa_duracao > 0:
                         label = f"{row['Descrição do item']} ({row['Tipo']})"
-                        gantt_data.append({"Tarefa": label, "Início": start_time, "Fim": bloco_fim})
+                        gantt_data.append({"Tarefa": label, "Início": current_time, "Fim": bloco_fim})
                         horas_restantes -= tarefa_duracao
-                    start_time = bloco_fim + timedelta(minutes=5)
+                    current_time = bloco_fim + timedelta(minutes=5)
+
         if gantt_data:
             gantt_df = pd.DataFrame(gantt_data)
             fig = px.timeline(gantt_df, x_start="Início", x_end="Fim", y="Tarefa", title=f"Gráfico de Gantt - {nome.capitalize()}")
